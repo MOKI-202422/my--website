@@ -8,8 +8,15 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3320; // Render用にPORT環境変数を使用
 
-app.use(express.static("public"));
+// 静的ファイルの提供 (docsフォルダ)
+app.use(express.static("docs"));
 
+// ルートエンドポイント
+app.get("/", (req, res) => {
+    res.sendFile(__dirname + "/docs/index.html"); // ルートでindex.htmlを提供
+});
+
+// クイズの質問データ
 const quizQuestions = [
     {
         question: "日本の首都はどこ？",
@@ -28,7 +35,8 @@ const quizQuestions = [
     },
 ];
 
-const rooms = {}; // ルームごとの状態を管理
+// ルームごとの状態管理
+const rooms = {};
 
 io.on("connection", (socket) => {
     console.log("ユーザーが接続しました:", socket.id);
