@@ -6,10 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const port = 3320;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 3320; // Render用にPORT環境変数を使用
 
 app.use(express.static("public"));
 
@@ -17,18 +14,18 @@ const quizQuestions = [
     {
         question: "日本の首都はどこ？",
         choices: ["大阪", "東京", "京都", "札幌"],
-        answer: "東京"
+        answer: "東京",
     },
     {
         question: "1+1は何？",
         choices: ["1", "2", "3", "4"],
-        answer: "2"
+        answer: "2",
     },
     {
         question: "地球で一番高い山は？",
         choices: ["富士山", "エベレスト", "キリマンジャロ", "アンデス山脈"],
-        answer: "エベレスト"
-    }
+        answer: "エベレスト",
+    },
 ];
 
 const rooms = {}; // ルームごとの状態を管理
@@ -200,6 +197,6 @@ io.on("connection", (socket) => {
     }
 });
 
-server.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+server.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
 });
