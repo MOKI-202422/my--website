@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>早押しクイズ（選択形式）</title>
+    <title>早押しクイズ</title>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>早押しクイズ（選択形式）</h1>
+    <h1>早押しクイズ</h1>
     
     <div>
         <input type="text" id="roomName" placeholder="ルーム名">
@@ -22,7 +22,7 @@
         <div id="timer">残り時間: <span id="timeLeft">30</span> 秒</div>
         <div id="messages"></div>
         <div id="scores">
-            <h3>プレイヤースコア</h3>
+            <h3>スコア</h3>
             <ul id="scoreList"></ul>
         </div>
     </div>
@@ -48,16 +48,16 @@
 
         let currentRoom = null;
 
-        // プレイヤー名にログインIDを設定
+        // ページロード時にログイン状態を確認
         document.addEventListener("DOMContentLoaded", () => {
             const username = localStorage.getItem("username");
-            if (username) {
-                playerNameInput.value = username;
-                playerNameInput.disabled = true; // プレイヤー名を変更不可に
-            } else {
-                alert("ログイン情報がありません。ログイン画面に戻ります。");
+            if (!username) {
+                alert("ログインしていません。ログイン画面に戻ります。");
                 window.location.href = "/";
+                return;
             }
+            playerNameInput.value = username;
+            playerNameInput.disabled = true; // プレイヤー名を変更不可に
         });
 
         // ルームに参加
@@ -71,10 +71,81 @@
 
                 document.getElementById("quiz").style.display = "block";
                 document.getElementById("playerList").style.display = "block";
+            } else {
+                alert("ルーム名とプレイヤー名を入力してください。");
             }
         });
 
-        // クイズ関連のSocket.ioロジック（省略）
+        // 準備完了ボタン
+        readyButton.addEventListener("click", () => {
+            const playerName = playerNameInput.value.trim();
+            if (currentRoom && playerName) {
+                socket.emit("player_ready", { roomName: currentRoom, playerName });
+                readyButton.disabled = true; // ボタンを無効化
+            } else {
+                alert("ルーム名またはプレイヤー名が設定されていません。");
+            }
+        });
+
+        // プレイヤーリスト更新
+        socket.on("player_list", (players) => {
+            playersList.innerHTML = "";
+            players.forEach(([playerName, score]) => {
+                const li = document.createElement("li");
+                li.textContent = `${playerName} (${score}点)`;
+                playersList.appendChild(li);
+            });
+        });
+
+        // 全員準備完了
+        socket.on("all_ready", () => {
+            messages.textContent = "全員準備完了！クイズを開始します！";
+            socket.emit("start_quiz", currentRoom);
+        });
+
+        // 問題を受け取る
+        socket.on("question", (data) => {
+            const { question, choices } = data;
+            questionElement.textContent = question;
+            choicesElement.innerHTML = "";
+            choices.forEach((choice) => {
+                const button = document.createElement("button");
+                button.textContent = choice;
+                button.addEventListener("click", () => {
+                    const playerName = playerNameInput.value.trim();
+                    socket.emit("answer", { roomName: currentRoom, playerName, answer: choice });
+                });
+                choicesElement.appendChild(button);
+            });
+        });
+
+        // タイマー更新
+        socket.on("timer_update", (timeLeft) => {
+            timeLeftElement.textContent = timeLeft;
+        });
+
+        // 結果を受け取る
+        socket.on("correct_answer", (data) => {
+            messages.textContent = data.isAnswerReveal
+                ? `正解: ${data.answer}`
+                : `${data.playerName}が正解しました: ${data.answer}`;
+        });
+
+        // スコア更新
+        socket.on("update_scores", (scores) => {
+            scoreList.innerHTML = "";
+            for (const [playerName, score] of Object.entries(scores)) {
+                const li = document.createElement("li");
+                li.textContent = `${playerName}: ${score}点`;
+                scoreList.appendChild(li);
+            }
+        });
+
+        // クイズ終了
+        socket.on("end_quiz", (message) => {
+            messages.textContent = message;
+            timeLeftElement.textContent = "0";
+        });
     </script>
 </body>
 </html>
