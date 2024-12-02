@@ -48,6 +48,18 @@
 
         let currentRoom = null;
 
+        // プレイヤー名にログインIDを設定
+        document.addEventListener("DOMContentLoaded", () => {
+            const username = localStorage.getItem("username");
+            if (username) {
+                playerNameInput.value = username;
+                playerNameInput.disabled = true; // プレイヤー名を変更不可に
+            } else {
+                alert("ログイン情報がありません。ログイン画面に戻ります。");
+                window.location.href = "/";
+            }
+        });
+
         // ルームに参加
         joinRoomButton.addEventListener("click", () => {
             const roomName = roomNameInput.value.trim();
@@ -62,88 +74,7 @@
             }
         });
 
-        // 準備完了ボタンを押したときの処理
-        readyButton.addEventListener("click", () => {
-            if (currentRoom) {
-                const playerName = playerNameInput.value.trim();
-                socket.emit("player_ready", { roomName: currentRoom, playerName });
-                readyButton.disabled = true; // ボタンを無効化
-            }
-        });
-
-        // プレイヤーリストを更新
-        socket.on("player_list", (players) => {
-            playersList.innerHTML = "";
-            players.forEach(([playerName, score]) => {
-                const li = document.createElement("li");
-                li.textContent = `${playerName} (${score}点)`;
-                playersList.appendChild(li);
-            });
-        });
-
-        // 問題と選択肢を受け取る
-        socket.on("question", (data) => {
-            const { question, choices } = data;
-            questionElement.textContent = question;
-            choicesElement.innerHTML = "";
-            choices.forEach((choice) => {
-                const button = document.createElement("button");
-                button.textContent = choice;
-                button.addEventListener("click", () => {
-                    const playerName = playerNameInput.value.trim();
-                    socket.emit("answer", { roomName: currentRoom, playerName, answer: choice });
-                });
-                choicesElement.appendChild(button);
-            });
-        });
-
-        // 残り時間を受け取る
-        socket.on("timer_update", (timeLeft) => {
-            timeLeftElement.textContent = timeLeft;
-        });
-
-        // 正解通知の受け取り
-        socket.on("correct_answer", (data) => {
-            if (data.isAnswerReveal) {
-                // 誰も答えられなかった場合
-                messages.textContent = `正解: ${data.answer}`;
-            } else {
-                // 誰かが正解した場合
-                messages.textContent = `${data.playerName}が正解しました: ${data.answer}`;
-            }
-        });
-
-        // 不正解通知
-        socket.on("wrong_answer", (data) => {
-            messages.textContent = `${data.playerName}の回答は不正解: ${data.answer}`;
-        });
-
-        // クイズ終了通知
-        socket.on("end_quiz", (message) => {
-            messages.textContent = message;
-            timeLeftElement.textContent = "0";
-        });
-
-        // スコアの更新を受け取る
-        socket.on("update_scores", (scores) => {
-            scoreList.innerHTML = ""; // 現在のスコアをリセット
-            for (const [playerName, score] of Object.entries(scores)) {
-                const li = document.createElement("li");
-                li.textContent = `${playerName}: ${score}点`;
-                scoreList.appendChild(li);
-            }
-        });
-
-        // 全員準備完了通知
-        socket.on("all_ready", () => {
-            messages.textContent = "全員準備完了！クイズを開始します！";
-            socket.emit("start_quiz", currentRoom);
-        });
-
-        // 不正解済みの通知を表示
-        socket.on("already_answered", (data) => {
-            alert(data.message);
-        });
+        // クイズ関連のSocket.ioロジック（省略）
     </script>
 </body>
 </html>

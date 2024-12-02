@@ -3,23 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ログイン</title>
+    <title>ログイン / 新規登録</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .subtitle {
+            font-size: 50%; /* 親要素の半分の大きさ */
+            color: gray;
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>ログイン</h1>
-    <form id="loginForm">
-        <label for="username">ユーザー名:</label>
-        <input type="text" id="username" name="username" required>
-        <button type="submit">ログイン</button>
-    </form>
+    <h1>
+        ログイン / 新規登録
+        <span class="subtitle">IDは名前として登録されます</span>
+    </h1>
+    <div id="authForms">
+        <!-- 新規登録フォーム -->
+        <div id="registerForm">
+            <h2>新規登録</h2>
+            <label for="registerID">ID:</label>
+            <input type="text" id="registerID" required>
+            <label for="registerPassword">パスワード:</label>
+            <input type="password" id="registerPassword" required>
+            <button id="registerButton">登録</button>
+        </div>
+        <hr>
+        <!-- ログインフォーム -->
+        <div id="loginForm">
+            <h2>ログイン</h2>
+            <label for="loginID">ID:</label>
+            <input type="text" id="loginID" required>
+            <label for="loginPassword">パスワード:</label>
+            <input type="password" id="loginPassword" required>
+            <button id="loginButton">ログイン</button>
+        </div>
+    </div>
     <script>
-        document.getElementById("loginForm").addEventListener("submit", (e) => {
-            e.preventDefault();
-            const username = document.getElementById("username").value.trim();
-            if (username) {
-                localStorage.setItem("username", username);
-                window.location.href = "/home";
+        // 新規登録処理
+        document.getElementById("registerButton").addEventListener("click", async () => {
+            const id = document.getElementById("registerID").value.trim();
+            const password = document.getElementById("registerPassword").value.trim();
+            if (id && password) {
+                const response = await fetch("/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, password }),
+                });
+                const result = await response.json();
+                alert(result.message);
+            } else {
+                alert("IDとパスワードを入力してください。");
+            }
+        });
+
+        // ログイン処理
+        document.getElementById("loginButton").addEventListener("click", async () => {
+            const id = document.getElementById("loginID").value.trim();
+            const password = document.getElementById("loginPassword").value.trim();
+            if (id && password) {
+                const response = await fetch("/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, password }),
+                });
+                const result = await response.json();
+                if (result.success) {
+                    localStorage.setItem("username", id); // ログインIDを保存
+                    window.location.href = "/home";
+                } else {
+                    alert(result.message);
+                }
+            } else {
+                alert("IDとパスワードを入力してください。");
             }
         });
     </script>
