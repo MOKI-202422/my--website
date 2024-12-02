@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 3320;
+const PORT = process.env.PORT || 3320; // Render環境用のポート設定
 
 // 静的ファイルの提供 (docsフォルダ)
 app.use(express.static("docs"));
