@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ホーム画面</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>ホーム画面</h1>
+    <p id="welcomeMessage"></p>
+    <button id="startQuiz">クイズを開始</button>
+    <script>
+        const username = localStorage.getItem("username");
+        if (!username) {
+            window.location.href = "/";
+        } else {
+            document.getElementById("welcomeMessage").textContent = `ようこそ、${username}さん！`;
+        }
+
+        document.getElementById("startQuiz").addEventListener("click", () => {
+            window.location.href = "/quiz";
+        });
+    </script>
+</body>
+</html>
