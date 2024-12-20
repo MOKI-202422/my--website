@@ -13,6 +13,7 @@ const playerReadyStatus = {}; // プレイヤーの準備状況を管理
 const playerScores = {}; // 各プレイヤーのスコアを管理
 const playerAnswers = {}; // 各ルームごとのプレイヤーの回答履歴を記録
 const privateChats = {}; // プライベートチャット用
+const posts = []; // 投稿データを保持する配列
 
 io.on("connection", (socket) => {
     console.log("A user connected");
@@ -415,6 +416,41 @@ app.get("/quiz-results", (req, res) => {
 app.get("/friend.html", (req, res) => {
     res.sendFile(__dirname + "/docs/friend.html");
 });
+
+app.get("/board.html", (req, res) => {
+    res.sendFile(__dirname + "/docs/board.html");
+});
+
+// 投稿を取得
+app.get("/api/posts", (req, res) => {
+    res.json({ success: true, posts });
+});
+
+// 投稿を追加
+app.post("/api/posts", (req, res) => {
+    const { username } = req.session.user || {};
+    const { content } = req.body;
+
+    if (!username) {
+        return res.status(401).json({ success: false, message: "ログインが必要です。" });
+    }
+
+    if (!content || content.trim() === "") {
+        return res.status(400).json({ success: false, message: "投稿内容が空です。" });
+    }
+
+    const post = {
+        id: posts.length + 1,
+        username,
+        content,
+        timestamp: new Date(),
+    };
+
+    posts.push(post);
+    io.emit("new_post", post); // リアルタイム更新
+    res.json({ success: true, post });
+});
+
 
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);

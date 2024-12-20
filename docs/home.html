@@ -13,6 +13,7 @@
     <button id="createQuestion">問題を作る</button>
     <button id="viewResults">成績表を見る</button>
     <button id="viewFriends">フレンドリスト</button>
+    <button id="viewBoard">掲示板</button>
     <script>
         const username = localStorage.getItem("username");
         if (!username) {
@@ -37,6 +38,11 @@
     document.getElementById("viewFriends").addEventListener("click", () => {
         window.location.href = "/friend.html";
     });
+
+    // 掲示板画面への移動
+    document.getElementById("viewBoard").addEventListener("click", () => {
+            window.location.href = "/board.html";
+        });
 
     </script>
 </body>
