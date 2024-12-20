@@ -10,6 +10,9 @@
     <h1>ホーム画面</h1>
     <p id="welcomeMessage"></p>
     <button id="startQuiz">クイズを開始</button>
+    <button id="createQuestion">問題を作る</button>
+    <button id="viewResults">成績表を見る</button>
+    <button id="viewFriends">フレンドリスト</button>
     <script>
         const username = localStorage.getItem("username");
         if (!username) {
@@ -21,7 +24,20 @@
         document.getElementById("startQuiz").addEventListener("click", () => {
             window.location.href = "/quiz";
         });
+
+        document.getElementById("createQuestion").addEventListener("click", () => {
+            window.location.href = "/question";
+        });
+
+        // 成績表画面への移動
+    document.getElementById("viewResults").addEventListener("click", () => {
+        window.location.href = "/results.html";
+    });
+
+    document.getElementById("viewFriends").addEventListener("click", () => {
+        window.location.href = "/friend.html";
+    });
+
     </script>
 </body>
 </html>
-

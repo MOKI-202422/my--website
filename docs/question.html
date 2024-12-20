@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>問題作成と閲覧</title>
+</head>
+<body>
+    <h1>問題作成と閲覧</h1>
+
+    <!-- カテゴリ作成フォーム -->
+    <form id="categoryForm">
+        <div>
+            <label for="newCategory">カテゴリ名:</label><br>
+            <input type="text" id="newCategory" placeholder="新しいカテゴリ">
+        </div>
+        <div>
+            <label>
+                <input type="checkbox" id="isLocked"> 鍵付きカテゴリ
+            </label>
+        </div>
+        <div>
+            <button type="button" id="addCategoryButton">カテゴリを作成</button>
+        </div>
+    </form>
+
+    <!-- 問題作成フォーム -->
+    <form id="questionForm">
+        <div>
+            <label for="categorySelect">カテゴリを選択:</label><br>
+            <select id="categorySelect">
+                <option value="">カテゴリを選択</option>
+            </select>
+        </div>
+        <div>
+            <label for="question">問題:</label><br>
+            <textarea id="question" rows="3" placeholder="問題文を入力してください" required></textarea>
+        </div>
+        <div>
+            <label for="choices">選択肢:</label><br>
+            <div>
+                1 <input type="text" class="choice" id="choice1" placeholder="選択肢を入力">
+                2 <input type="text" class="choice" id="choice2" placeholder="選択肢を入力">
+                3 <input type="text" class="choice" id="choice3" placeholder="選択肢を入力">
+                4 <input type="text" class="choice" id="choice4" placeholder="選択肢を入力">
+            </div>
+        </div>
+        <div>
+            <label for="answerSelect">正解:</label><br>
+            <select id="answerSelect" required>
+                <option value="">正解を選択してください</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+            </select>
+        </div>
+        <div>
+            <label for="explanation">解説:</label><br>
+            <textarea id="explanation" rows="4" placeholder="解説を入力してください" required></textarea>
+        </div>
+        <div>
+            <button type="submit">問題を追加</button>
+        </div>
+    </form>
+
+    <!-- 保存された問題の閲覧 -->
+    <h2>保存された問題</h2>
+    <div>
+        <label for="categoryListSelect">カテゴリを選択:</label><br>
+        <select id="categoryListSelect">
+            <option value="">カテゴリを選択</option>
+        </select>
+    </div>
+    <ul id="questionList"></ul>
+    <div id="questionDetail" style="display: none;">
+        <h3>問題詳細</h3>
+        <p><strong>問題:</strong> <span id="detailQuestion"></span></p>
+        <p><strong>選択肢:</strong> <span id="detailChoices"></span></p>
+        <p><strong>正解:</strong> <span id="detailAnswer"></span></p>
+        <p><strong>解説:</strong> <span id="detailExplanation"></span></p>
+    </div>
+
+    <script>
+        const categorySelect = document.getElementById("categorySelect");
+        const categoryListSelect = document.getElementById("categoryListSelect");
+        const questionList = document.getElementById("questionList");
+
+        // 初期化処理
+        document.addEventListener("DOMContentLoaded", loadCategories);
+
+        // カテゴリ一覧をロード
+        async function loadCategories() {
+            const response = await fetch("/categories");
+            const result = await response.json();
+
+            categorySelect.innerHTML = `<option value="">カテゴリを選択</option>`;
+            categoryListSelect.innerHTML = `<option value="">カテゴリを選択</option>`;
+
+            if (result.success) {
+                result.categories.forEach(({ name, isLocked }) => {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = `${name}${isLocked ? " (鍵付き)" : ""}`;
+                    categorySelect.appendChild(option);
+
+                    const listOption = document.createElement("option");
+                    listOption.value = name;
+                    listOption.textContent = `${name}${isLocked ? " (鍵付き)" : ""}`;
+                    categoryListSelect.appendChild(listOption);
+                });
+            }
+        }
+
+        // カテゴリ作成ボタン
+        document.getElementById("addCategoryButton").addEventListener("click", async () => {
+            const category = document.getElementById("newCategory").value.trim();
+            const isLocked = document.getElementById("isLocked").checked;
+
+            if (!category) {
+                alert("カテゴリ名を入力してください。");
+                return;
+            }
+
+            const response = await fetch("/add-category", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ category, isLocked }),
+            });
+
+            const result = await response.json();
+            alert(result.message);
+
+            if (result.success) {
+                document.getElementById("categoryForm").reset();
+                loadCategories();
+            }
+        });
+
+        // 問題作成フォーム送信処理
+        document.getElementById("questionForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const category = categorySelect.value;
+            const question = document.getElementById("question").value.trim();
+            const choices = Array.from(document.getElementsByClassName("choice")).map((input) => input.value.trim());
+            const answer = document.getElementById("answerSelect").value;
+            const explanation = document.getElementById("explanation").value.trim();
+
+            if (!category || !question || choices.some(choice => !choice) || !answer || !explanation) {
+                alert("入力が不正です。すべてのフィールドを正しく入力してください。");
+                return;
+            }
+
+            const response = await fetch("/add-question", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ category, question, choices, answer, explanation }),
+            });
+
+            const result = await response.json();
+            alert(result.message);
+
+            if (result.success) {
+                document.getElementById("questionForm").reset();
+                loadQuestions(category);
+            }
+        });
+
+        // カテゴリ内の問題をロード
+        async function loadQuestions(category) {
+            if (!category)return;
+            
+            try {
+                const response = await fetch(`/questions/${category}`);
+                const result = await response.json();
+
+                questionList.innerHTML = ""; // 初期化
+
+                if (result.success && result.questions.length > 0) {
+                    result.questions.forEach(({ question, choices, answer, explanation }, index) => {
+                        const li = document.createElement("li");
+                        li.textContent = `Q${index + 1}: ${question}`;
+                        li.addEventListener("click", () => {
+                            document.getElementById("detailQuestion").textContent = question;
+                            document.getElementById("detailChoices").textContent = choices.join(", ");
+                            document.getElementById("detailAnswer").textContent = choices[answer - 1];
+                            document.getElementById("detailExplanation").textContent = explanation;
+                            document.getElementById("questionDetail").style.display = "block";
+                        });
+                        questionList.appendChild(li);
+                    });
+                } else {
+                    questionList.innerHTML = "<li>問題がありません。</li>";
+                }
+            } catch (error) {
+                console.error("問題のロード中にエラーが発生しました:", error);
+                questionList.innerHTML = "<li>エラーが発生しました。問題をロードできません。</li>";
+            }
+        }
+
+        // カテゴリ変更時の問題ロード
+        categoryListSelect.addEventListener("change", (e) => {
+            const category = e.target.value;
+            loadQuestions(category);
+        });
+
+        let currentlySelectedQuestion = null; // 現在選択されている問題を追跡
+
+function toggleQuestionDetail(questionElement, question, choices, answer, explanation) {
+    if (currentlySelectedQuestion === questionElement) {
+        // 同じ要素を再びクリックした場合、詳細を非表示にする
+        document.getElementById("questionDetail").style.display = "none";
+        currentlySelectedQuestion = null;
+    } else {
+        // 新しい要素が選択された場合、詳細を表示する
+        document.getElementById("detailQuestion").textContent = question;
+        document.getElementById("detailChoices").textContent = choices.join(", ");
+        document.getElementById("detailAnswer").textContent = choices[answer - 1];
+        document.getElementById("detailExplanation").textContent = explanation;
+        document.getElementById("questionDetail").style.display = "block";
+        currentlySelectedQuestion = questionElement;
+    }
+}
+
+// 問題リストの生成時に toggleQuestionDetail を使用
+async function loadQuestions(category) {
+    if (!category) return;
+
+    try {
+        const response = await fetch(`/questions/${category}`);
+        const result = await response.json();
+
+        questionList.innerHTML = ""; // 初期化
+
+        if (result.success && result.questions.length > 0) {
+            result.questions.forEach(({ question, choices, answer, explanation }, index) => {
+                const li = document.createElement("li");
+                li.textContent = `Q${index + 1}: ${question}`;
+
+                // トグル機能を追加
+                li.addEventListener("click", () => {
+                    toggleQuestionDetail(li, question, choices, answer, explanation);
+                });
+
+                // 削除ボタンを追加
+                const deleteButton = document.createElement("button");
+                deleteButton.textContent = "削除";
+                deleteButton.style.marginLeft = "10px";
+                deleteButton.addEventListener("click", async () => {
+                    if (confirm("この問題を削除してもよろしいですか？")) {
+                        const deleteResponse = await fetch("/delete-question", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ category, index }),
+                        });
+
+                        const deleteResult = await deleteResponse.json();
+                        alert(deleteResult.message);
+
+                        if (deleteResult.success) {
+                            loadQuestions(category); // 問題リストを再読み込み
+                        }
+                    }
+                });
+
+                li.appendChild(deleteButton);
+                questionList.appendChild(li);
+            })
+        } else {
+            questionList.innerHTML = "<li>問題がありません。</li>";
+        }
+    } catch (error) {
+        console.error("問題のロード中にエラーが発生しました:", error);
+        questionList.innerHTML = "<li>エラーが発生しました。問題をロードできません。</li>";
+    }
+}
+
+
+
+// ソートロジックを実装する関数
+function sortCategories(categories) {
+    return categories.sort((a, b) => {
+        const regexJapanese = /^[\u3040-\u30FF\u4E00-\u9FFF]/; // 五十音（ひらがな・カタカナ・漢字）判定
+        const isAJapanese = regexJapanese.test(a.name);
+        const isBJapanese = regexJapanese.test(b.name);
+
+        if (isAJapanese && isBJapanese) {
+            // 五十音順
+            return a.name.localeCompare(b.name, "ja");
+        } else if (isAJapanese) {
+            return -1; // a が五十音で b がアルファベットまたは数字
+        } else if (isBJapanese) {
+            return 1; // b が五十音で a がアルファベットまたは数字
+        } else {
+            const isANumeric = !isNaN(a.name);
+            const isBNumeric = !isNaN(b.name);
+
+            if (isANumeric && isBNumeric) {
+                // 数字の小さい順
+                return parseFloat(a.name) - parseFloat(b.name);
+            } else if (isANumeric) {
+                return 1; // a が数字で b がアルファベット
+            } else if (isBNumeric) {
+                return -1; // b が数字で a がアルファベット
+            }
+
+            // アルファベット順
+            return a.name.localeCompare(b.name, "en");
+        }
+    });
+}
+
+// 元の loadCategories を拡張してソートを適用
+async function loadCategories() {
+    const response = await fetch("/categories");
+    const result = await response.json();
+
+    categorySelect.innerHTML = `<option value="">カテゴリを選択</option>`;
+    categoryListSelect.innerHTML = `<option value="">カテゴリを選択</option>`;
+
+    if (result.success) {
+        // ソート処理を適用
+        const sortedCategories = sortCategories(result.categories);
+
+        // ソート後にカテゴリを描画
+        sortedCategories.forEach(({ name, isLocked }) => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = `${name}${isLocked ? " (鍵付き)" : ""}`;
+            categorySelect.appendChild(option);
+
+            const listOption = document.createElement("option");
+            listOption.value = name;
+            listOption.textContent = `${name}${isLocked ? " (鍵付き)" : ""}`;
+            categoryListSelect.appendChild(listOption);
+        });
+    }
+}
+
+    </script>
+</body>
+</html>

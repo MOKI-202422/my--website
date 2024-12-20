@@ -3,39 +3,267 @@ const session = require("express-session");
 const http = require("http");
 const { Server } = require("socket.io");
 
-// アプリケーションとサーバーのセットアップ
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+const users = {};
+const categories = {};
+const playerReadyStatus = {}; // プレイヤーの準備状況を管理
+const playerScores = {}; // 各プレイヤーのスコアを管理
+const playerAnswers = {}; // 各ルームごとのプレイヤーの回答履歴を記録
+const privateChats = {}; // プライベートチャット用
+
+io.on("connection", (socket) => {
+    console.log("A user connected");
+
+    socket.on("join_room", (roomName, playerName) => {
+        socket.join(roomName);
+        socket.playerName = playerName;
+
+        if (!playerScores[roomName]) playerScores[roomName] = {};
+        if (!playerScores[roomName][playerName]) playerScores[roomName][playerName] = 0; // スコア初期化
+
+        console.log(`${playerName} joined room: ${roomName}`);
+        if (!playerReadyStatus[roomName]) playerReadyStatus[roomName] = {};
+        playerReadyStatus[roomName][playerName] = false;
+
+        const playersInRoom = getPlayersInRoom(roomName);
+        io.to(roomName).emit("update_players", playersInRoom);
+    });
+
+    socket.on("player_ready", ({ roomName, playerName }) => {
+        playerReadyStatus[roomName][playerName] = true;
+    
+        // ログ出力を追加して準備状況を確認
+        console.log(`準備状況: ${JSON.stringify(playerReadyStatus[roomName])}`);
+        const allReady = Object.values(playerReadyStatus[roomName]).every((status) => status);
+    
+        if (allReady) {
+            console.log(`全員準備完了: ${roomName}`);
+            io.to(roomName).emit("all_ready");
+            startQuiz(roomName);
+        } else {
+            io.to(roomName).emit("update_ready_status", playerReadyStatus[roomName]);
+        }
+    });
+    
+
+    socket.on("answer", ({ roomName, playerName, answer }) => handleAnswer(roomName, playerName, answer));
+
+    socket.on("disconnect", () => {
+        for (const roomName in playerReadyStatus) {
+            delete playerReadyStatus[roomName][socket.playerName];
+        }
+    });
+
+    // ここにチャット機能のコードを追加
+    socket.on("set_username", (playerName) => {
+        socket.playerName = playerName;
+        console.log(`${playerName} has connected`);
+    });
+
+    // メッセージ送信
+    socket.on("send_message", ({ roomKey, message }) => {
+        const sender = socket.playerName;
+
+        if (!roomKey || !sender || !message) return;
+
+        // 履歴を保存
+        if (!privateChats[roomKey]) privateChats[roomKey] = [];
+        privateChats[roomKey].push({ sender, message });
+
+        // 同じチャットルームにいるユーザーに送信
+        io.emit("receive_message", { roomKey, sender, message });
+    });
+
+    // 履歴取得
+    socket.on("get_chat_history", ({ roomKey }, callback) => {
+        if (!roomKey) {
+            callback({ success: false, message: "Invalid room key" });
+            return;
+        }
+
+        const messages = privateChats[roomKey] || [];
+        callback({ success: true, messages });
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`${socket.playerName} disconnected`);
+    });
+});
+
+// Helper functions
+function getPlayersInRoom(roomName) {
+    return Array.from(io.sockets.adapter.rooms.get(roomName) || []).map(
+        (socketId) => io.sockets.sockets.get(socketId).playerName
+    );
+}
+
+function startQuiz(roomName) {
+    const questions = categories[roomName]?.questions || [];
+    if (questions.length === 0) {
+        io.to(roomName).emit("end_quiz", "クイズに問題がありません。");
+        return;
+    }
+
+    playerReadyStatus[roomName].currentQuestion = 0;
+    answeredPlayers[roomName] = {}; // 回答済みプレイヤーを初期化
+    startQuestionTimer(roomName, questions);
+}
+
+const intervalIds = {}; // 各ルームのタイマーを管理
+
+function startQuestionTimer(roomName, questions) {
+    const questionIndex = playerReadyStatus[roomName].currentQuestion || 0;
+    if (questionIndex >= questions.length) {
+        io.to(roomName).emit("end_quiz", "クイズが終了しました！");
+        return;
+    }
+
+    const question = questions[questionIndex];
+    io.to(roomName).emit("room_questions", [question]);
+
+    let timeLeft = 30;
+
+    // タイマーのリセット（存在する場合のみ）
+    if (intervalIds[roomName]) {
+        clearInterval(intervalIds[roomName]);
+    }
+
+    // 新しいタイマーを設定
+    intervalIds[roomName] = setInterval(() => {
+        timeLeft--;
+        io.to(roomName).emit("timer_update", timeLeft);
+
+        if (timeLeft <= 0) {
+            clearInterval(intervalIds[roomName]);
+            // 時間切れになった場合、正解を表示
+            const correctAnswer = question.choices[question.answer - 1];
+            io.to(roomName).emit("show_correct_answer", { correctAnswer });
+
+            nextQuestion(roomName, questions);
+        }
+    }, 1000);
+}
+
+function nextQuestion(roomName, questions) {
+    playerReadyStatus[roomName].currentQuestion++;
+
+    if (playerReadyStatus[roomName].currentQuestion >= questions.length) {
+        io.to(roomName).emit("end_quiz", "問題はすべて終了しました！");
+        return;
+    }
+
+    answeredPlayers[roomName] = {}; // 回答済みプレイヤーをリセット
+
+    
+    // 2秒後に次の問題を開始
+    setTimeout(() => {
+    startQuestionTimer(roomName, questions);
+   }, 2000);
+}
+
+const answeredPlayers = {}; // 各ルームごとの回答済みプレイヤーを管理
+
+function handleAnswer(roomName, playerName, answer) {
+    const questions = categories[roomName]?.questions || [];
+    const questionIndex = playerReadyStatus[roomName]?.currentQuestion || 0;
+    const question = questions[questionIndex];
+    if (!question) return;
+
+    // 回答履歴を初期化
+    if (!playerAnswers[roomName]) playerAnswers[roomName] = {};
+    if (!playerAnswers[roomName][playerName]) playerAnswers[roomName][playerName] = [];
+
+    // 回答済みプレイヤーをチェック
+    if (!answeredPlayers[roomName]) answeredPlayers[roomName] = {};
+    if (answeredPlayers[roomName][playerName]) {
+        // 既に回答したプレイヤーの場合は無視
+        io.to(roomName).emit("already_answered", { playerName });
+        return;
+    }
+
+    // プレイヤーの回答を記録
+    const correctAnswer = question.choices[question.answer - 1];
+    playerAnswers[roomName][playerName].push({
+        question: question.question,
+        choices: question.choices, // 選択肢を追加
+        answer: question.choices[answer - 1], // プレイヤーの回答
+        correct: question.choices[answer - 1] === correctAnswer,
+        explanation: question.explanation // 解説を追加
+    });
+
+    answeredPlayers[roomName][playerName] = true; // プレイヤーの回答を記録
+    console.log(`Player answers for room ${roomName}:`, playerAnswers[roomName]);
+
+    if (question.choices[answer - 1] === correctAnswer) {
+        // 正解の場合
+        playerScores[roomName][playerName] += 1; // スコアを加算
+        io.to(roomName).emit("update_scores", playerScores[roomName]); // スコアをクライアントに送信
+        console.log(`Scores for room ${roomName}:`, playerScores[roomName]);
+        io.to(roomName).emit("correct_answer", { playerName, answer });
+        // 正解を表示してから次の問題に移る
+        io.to(roomName).emit("show_correct_answer", { correctAnswer });
+        clearInterval(intervalIds[roomName]); // タイマーをクリア
+         // 2秒後に次の問題を開始
+         setTimeout(() => {
+        nextQuestion(roomName, questions); // 次の問題に進む
+    }, 2000);
+    } else {
+        // 不正解の場合
+        io.to(roomName).emit("wrong_answer", { playerName, answer });
+    }
+    
+
+    // 全員が回答済みかチェック
+    const playersInRoom = getPlayersInRoom(roomName);
+    const allAnswered = playersInRoom.every((player) => answeredPlayers[roomName][player]);
+
+    if (allAnswered) {
+        // 全員が回答したが正解者がいない場合も正解を表示
+        io.to(roomName).emit("show_correct_answer", { correctAnswer });
+        // 全員が回答済みの場合
+        clearInterval(intervalIds[roomName]); // タイマーをクリア
+        // 2秒後に次の問題を開始
+        setTimeout(() => {
+        nextQuestion(roomName, questions); // 次の問題に進む
+    }, 2000);
+    }
+}
+
 const PORT = process.env.PORT || 3320;
 
-// セッション設定
 app.use(
     session({
         secret: "your_secret_key",
         resave: false,
         saveUninitialized: true,
-        cookie: { secure: false }, // HTTPS環境ではtrue
+        cookie: {
+            secure: false, // HTTPSで運用する場合はtrueに変更
+            httpOnly: true, // JavaScriptからアクセス不可
+            sameSite: "lax", // セッション固定化攻撃を防ぐ
+        },
     })
 );
 
-// ユーザー情報管理（仮のデータベース）
-const users = {};
-
-// JSONリクエストボディ解析
 app.use(express.json());
 
-// ルーティング
 app.get("/", (req, res) => res.sendFile(__dirname + "/docs/login.html"));
 app.get("/home", (req, res) => {
     if (!req.session.user) return res.redirect("/");
     res.sendFile(__dirname + "/docs/home.html");
 });
 app.get("/quiz", (req, res) => {
-    if (!req.session.user) return res.redirect("/");
+    if (!req.session.user) return res.redirect("/"); // ログインしていない場合リダイレクト
     res.sendFile(__dirname + "/docs/index.html");
 });
+
+app.get("/question", (req, res) => {
+    if (!req.session.user) return res.redirect("/");
+    res.sendFile(__dirname + "/docs/question.html");
+});
+
 app.get("/get-username", (req, res) => {
     if (!req.session.user) {
         return res.status(401).json({ success: false, message: "未ログインです。" });
@@ -43,10 +271,8 @@ app.get("/get-username", (req, res) => {
     res.json({ success: true, username: req.session.user.id });
 });
 
-// 静的ファイルの提供
 app.use(express.static("docs"));
 
-// 新規登録エンドポイント
 app.post("/register", (req, res) => {
     const { id, password } = req.body;
     if (users[id]) {
@@ -56,7 +282,6 @@ app.post("/register", (req, res) => {
     res.json({ success: true, message: "登録が完了しました。" });
 });
 
-// ログインエンドポイント
 app.post("/login", (req, res) => {
     const { id, password } = req.body;
     if (!users[id] || users[id].password !== password) {
@@ -66,140 +291,132 @@ app.post("/login", (req, res) => {
     res.json({ success: true, message: "ログインに成功しました。" });
 });
 
-// クイズデータ
-const quizQuestions = [
-    { question: "日本の首都はどこ？", choices: ["大阪", "東京", "京都", "札幌"], answer: "東京" },
-    { question: "1+1は何？", choices: ["1", "2", "3", "4"], answer: "2" },
-    { question: "地球で一番高い山は？", choices: ["富士山", "エベレスト", "キリマンジャロ", "アンデス山脈"], answer: "エベレスト" },
-];
+app.post("/add-category", (req, res) => {
+    const { category, isLocked } = req.body;
+    const username = req.session.user?.id;
 
-const rooms = {};
-
-// WebSocketの設定
-io.on("connection", (socket) => {
-    console.log("ユーザーが接続しました:", socket.id);
-
-    socket.on("join_room", (roomName, playerName) => {
-        console.log(`ルーム: ${roomName}, プレイヤー名: ${playerName} が参加しました。`);
-        socket.join(roomName);
-
-        if (!rooms[roomName]) {
-            rooms[roomName] = {
-                players: {},
-                readyPlayers: new Set(),
-                currentQuestionIndex: 0,
-                timer: null,
-                timeLeft: 30,
-                incorrectPlayers: new Set(), // 不正解プレイヤー
-                answeredPlayers: new Set(), // 回答済みプレイヤー
-            };
-        }
-
-        rooms[roomName].players[playerName] = 0; // スコア初期化
-        io.to(roomName).emit("player_list", Object.entries(rooms[roomName].players));
-    });
-
-    socket.on("player_ready", ({ roomName, playerName }) => {
-        const room = rooms[roomName];
-        if (!room) return;
-
-        room.readyPlayers.add(playerName);
-        if (room.readyPlayers.size === Object.keys(room.players).length) {
-            io.to(roomName).emit("all_ready");
-        }
-    });
-
-    socket.on("start_quiz", (roomName) => {
-        const room = rooms[roomName];
-        if (!room) return;
-
-        room.currentQuestionIndex = 0;
-        sendQuestion(roomName);
-    });
-
-    function sendQuestion(roomName) {
-        const room = rooms[roomName];
-        if (!room || room.currentQuestionIndex >= quizQuestions.length) {
-            io.to(roomName).emit("end_quiz", "クイズ終了！");
-            return;
-        }
-
-        const currentQuestion = quizQuestions[room.currentQuestionIndex];
-        room.timeLeft = 30;
-        room.incorrectPlayers.clear();
-        room.answeredPlayers.clear();
-
-        io.to(roomName).emit("question", {
-            question: currentQuestion.question,
-            choices: currentQuestion.choices,
-        });
-
-        startTimer(roomName);
-        room.currentQuestionIndex++;
+    if (!category) {
+        return res.status(400).json({ success: false, message: "カテゴリ名を指定してください。" });
     }
 
-    function startTimer(roomName) {
-        const room = rooms[roomName];
-        if (!room) return;
-
-        if (room.timer) clearInterval(room.timer);
-
-        room.timer = setInterval(() => {
-            room.timeLeft--;
-            io.to(roomName).emit("timer_update", room.timeLeft);
-
-            if (room.timeLeft <= 0) {
-                clearInterval(room.timer);
-
-                const currentQuestion = quizQuestions[room.currentQuestionIndex - 1];
-                io.to(roomName).emit("correct_answer", {
-                    isAnswerReveal: true,
-                    answer: currentQuestion.answer,
-                });
-                setTimeout(() => sendQuestion(roomName), 2000);
-            }
-        }, 1000);
+    if (categories[category]) {
+        return res.status(400).json({ success: false, message: "カテゴリ名が既に存在します。" });
     }
 
-    socket.on("answer", ({ roomName, playerName, answer }) => {
-        const room = rooms[roomName];
-        if (!room) return;
+    categories[category] = {
+        isLocked: isLocked || false,
+        owner: username,
+        questions: [],
+    };
 
-        if (room.incorrectPlayers.has(playerName) || room.answeredPlayers.has(playerName)) {
-            socket.emit("message", { type: "warning", text: "すでに回答済みです。" });
-            return;
-        }
+    res.json({ success: true, message: `カテゴリ「${category}」が作成されました。` });
+});
 
-        const currentIndex = room.currentQuestionIndex - 1;
-        const currentQuestion = quizQuestions[currentIndex];
-
-        room.answeredPlayers.add(playerName);
-
-        if (answer === currentQuestion.answer) {
-            room.players[playerName] += 1;
-            io.to(roomName).emit("update_scores", room.players);
-            io.to(roomName).emit("correct_answer", { playerName, answer });
-
-            if (room.timer) clearInterval(room.timer);
-            setTimeout(() => sendQuestion(roomName), 2000);
-        } else {
-            room.incorrectPlayers.add(playerName);
-            io.to(roomName).emit("wrong_answer", { playerName, answer });
-
-            if (room.incorrectPlayers.size === Object.keys(room.players).length) {
-                if (room.timer) clearInterval(room.timer);
-
-                io.to(roomName).emit("correct_answer", {
-                    isAnswerReveal: true,
-                    answer: currentQuestion.answer,
-                });
-                setTimeout(() => sendQuestion(roomName), 2000);
-            }
-        }
+app.get("/categories", (req, res) => {
+    res.json({
+        success: true,
+        categories: Object.keys(categories).map((category) => ({
+            name: category,
+            isLocked: categories[category].isLocked,
+        })),
     });
 });
 
-// サーバー起動
+app.post("/add-question", (req, res) => {
+    const { category, question, choices, answer, explanation } = req.body;
+    const username = req.session.user?.id;
+
+    if (!category || !question || !choices || !answer || !explanation || choices.length < 2) {
+        return res.status(400).json({ success: false, message: "カテゴリまたは問題が不正です。" });
+    }
+
+    if (!categories[category]) {
+        return res.status(404).json({ success: false, message: "カテゴリが存在しません。" });
+    }
+
+    if (categories[category].isLocked && categories[category].owner !== username) {
+        return res.status(403).json({ success: false, message: "このカテゴリにはアクセスできません。" });
+    }
+
+    categories[category].questions.push({ question, choices, answer, explanation });
+
+    // 新しい問題をルームにいるユーザーに送信
+io.to(category).emit("new_question", { question, choices, answer, explanation });
+
+    res.json({ success: true, message: `カテゴリ「${category}」に問題が追加されました。` });
+});
+
+app.post("/delete-question", (req, res) => {
+   const { category, index } = req.body;
+   const username = req.session.user?.id;
+
+   if (!username) {
+       return res.status(401).json({ success: false, message: "ログインが必要です。" });
+   }
+
+   if (!categories[category]) {
+       return res.status(404).json({ success: false, message: "カテゴリが存在しません。" });
+   }
+
+   const categoryData = categories[category];
+
+   // 鍵付きカテゴリはオーナーのみ削除可能
+   if (categoryData.isLocked && categoryData.owner !== username) {
+       return res.status(403).json({ success: false, message: "このカテゴリの問題を削除する権限がありません。" });
+   }
+
+   if (!categoryData.questions[index]) {
+       return res.status(404).json({ success: false, message: "指定された問題が存在しません。" });
+   }
+
+   // 問題を削除
+   categoryData.questions.splice(index, 1);
+   res.json({ success: true, message: "問題が削除されました。" });
+});
+
+// 新規追加: カテゴリ内の問題を取得
+app.get("/questions/:category", (req, res) => {
+    const { category } = req.params;
+
+    if (!categories[category]) {
+        return res.status(404).json({
+            success: false,
+            message: "カテゴリが見つかりません。",
+        });
+    }
+
+    res.json({
+        success: true,
+        questions: categories[category].questions,
+    });
+});
+
+// 成績ページの静的ファイル提供
+app.get("/results.html", (req, res) => {
+    res.sendFile(__dirname + "/docs/results.html");
+});
+
+// 成績データを返すエンドポイント
+app.get("/quiz-results", (req, res) => {
+    const roomName = req.query.roomName; // クエリパラメータからルーム名を取得
+    if (!roomName || !playerScores[roomName]) {
+        return res.json({ success: false, message: "成績データがありません。" });
+    }
+
+    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
+        playerName,
+        score,
+        answers: playerAnswers[roomName]?.[playerName] || [], // プレイヤーの回答履歴を含める
+    }));
+
+    res.json({ success: true, scores });
+});
+
+app.get("/friend.html", (req, res) => {
+    res.sendFile(__dirname + "/docs/friend.html");
+});
+
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+

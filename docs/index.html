@@ -10,9 +10,12 @@
 <body>
     <h1>早押しクイズ</h1>
     <div>
-        <input type="text" id="roomName" placeholder="ルーム名">
+        <select id="categoryDropdown">
+            <option value="">カテゴリを選択してください</option>
+        </select>
         <button id="joinRoomButton">ルームに参加</button>
     </div>
+    
 
     <div id="quiz" style="display: none;">
         <h2 id="question">問題がここに表示されます</h2>
@@ -32,113 +35,202 @@
     </div>
 
     <script>
-        const socket = io();
-        const roomNameInput = document.getElementById("roomName");
-        const joinRoomButton = document.getElementById("joinRoomButton");
-        const readyButton = document.getElementById("readyButton");
-        const questionElement = document.getElementById("question");
-        const choicesElement = document.getElementById("choices");
-        const timeLeftElement = document.getElementById("timeLeft");
-        const messages = document.getElementById("messages");
-        const scoreList = document.getElementById("scoreList");
-        const playersList = document.getElementById("players");
+    const socket = io();
+    let currentRoom = null;
+    let playerName = "";
 
-        let currentRoom = null;
-        let playerName = ""; // プレイヤー名を保持
-
-        // サーバーからログインしたユーザーIDを取得
-        async function fetchPlayerName() {
-            try {
-                const response = await fetch("/get-username");
-                const result = await response.json();
-                if (result.success) {
-                    playerName = result.username; // プレイヤー名をサーバーから取得
-                    console.log(`ログイン中のプレイヤー名: ${playerName}`);
-                } else {
-                    alert("ユーザー情報が取得できません。ログイン画面に戻ります。");
-                    window.location.href = "/";
-                }
-            } catch (error) {
-                console.error("エラー:", error);
-                alert("サーバーとの通信に失敗しました。ログイン画面に戻ります。");
-                window.location.href = "/";
-            }
+    document.addEventListener("DOMContentLoaded", async () => {
+        const response = await fetch("/get-username");
+        const result = await response.json();
+        if (result.success) {
+            playerName = result.username;
+        } else {
+            alert("ログインが必要です。");
+            window.location.href = "/";
         }
+    });
 
-        // 初期化時にプレイヤー名を取得
-        document.addEventListener("DOMContentLoaded", fetchPlayerName);
+    // プレイヤーリスト更新のためのリスナー追加
+socket.on("update_players", (players) => {
+    const playersList = document.getElementById("players");
+    playersList.innerHTML = ""; // プレイヤーリストをクリア
 
-        // ルームに参加
-        joinRoomButton.addEventListener("click", () => {
-            const roomName = roomNameInput.value.trim();
-            if (roomName && playerName) {
-                currentRoom = roomName;
-                console.log(`ルーム名: ${roomName}, プレイヤー名: ${playerName}`);
-                socket.emit("join_room", roomName, playerName);
+    players.forEach((playerName) => {
+        const li = document.createElement("li");
+        li.textContent = playerName;
+        playersList.appendChild(li);
+    });
+});
 
-                // クイズ画面を表示
-                document.getElementById("quiz").style.display = "block";
-                document.getElementById("playerList").style.display = "block";
-            } else {
-                alert("ルーム名を入力してください。");
-            }
+    document.addEventListener("DOMContentLoaded", async () => {
+    // ユーザー名の取得
+    const userResponse = await fetch("/get-username");
+    const userResult = await userResponse.json();
+    if (userResult.success) {
+        playerName = userResult.username;
+    } else {
+        alert("ログインが必要です。");
+        window.location.href = "/";
+        return;
+    }
+
+    // カテゴリ一覧の取得
+    const categoryResponse = await fetch("/categories");
+    const categoryResult = await categoryResponse.json();
+    if (categoryResult.success) {
+        const categoryDropdown = document.getElementById("categoryDropdown");
+        categoryResult.categories.forEach((category) => {
+            const option = document.createElement("option");
+            option.value = category.name;
+            option.textContent = category.name;
+            categoryDropdown.appendChild(option);
         });
+    } else {
+        alert("カテゴリ一覧の取得に失敗しました。");
+    }
+});
 
-        // 準備完了ボタン
-        readyButton.addEventListener("click", () => {
-            if (currentRoom && playerName) {
-                socket.emit("player_ready", { roomName: currentRoom, playerName });
-                readyButton.disabled = true;
-            }
-        });
+document.getElementById("joinRoomButton").addEventListener("click", async () => {
+    const categoryDropdown = document.getElementById("categoryDropdown");
+    const roomName = categoryDropdown.value;
 
-        // サーバーからの問題を受信
-        socket.on("question", (data) => {
-            console.log("クイズの問題を受信:", data);
-            questionElement.textContent = data.question;
-            choicesElement.innerHTML = "";
-            data.choices.forEach((choice) => {
-                const button = document.createElement("button");
-                button.textContent = choice;
-                button.addEventListener("click", () => {
-                    socket.emit("answer", { roomName: currentRoom, playerName, answer: choice });
-                });
-                choicesElement.appendChild(button);
-            });
-        });
+    if (!roomName) {
+        alert("カテゴリを選択してください。");
+        return;
+    }
 
-        socket.on("timer_update", (timeLeft) => {
-            timeLeftElement.textContent = timeLeft;
-        });
+    const response = await fetch(`/questions/${roomName}`);
+    const result = await response.json();
 
-        socket.on("update_scores", (scores) => {
-            scoreList.innerHTML = "";
-            for (const [name, score] of Object.entries(scores)) {
-                const li = document.createElement("li");
-                li.textContent = `${name}: ${score}点`;
-                scoreList.appendChild(li);
-            }
-        });
+    if (result.success && playerName) {
+        currentRoom = roomName;
+        localStorage.setItem("currentRoom", roomName); // ローカルストレージにルーム名を保存
+        socket.emit("join_room", roomName, playerName);
+        document.getElementById("quiz").style.display = "block";
+        document.getElementById("playerList").style.display = "block";
+    } else {
+        alert("選択されたカテゴリが無効です。");
+    }
+});
 
-        socket.on("all_ready", () => {
-            messages.textContent = "全員準備完了！クイズを開始します！";
-            socket.emit("start_quiz", currentRoom);
-        });
+    socket.on("update_scores", (scores) => {
+    const scoreList = document.getElementById("scoreList");
+    scoreList.innerHTML = ""; // スコアリストをクリア
 
-        socket.on("correct_answer", (data) => {
-            messages.textContent = data.isAnswerReveal
-                ? `正解: ${data.answer}`
-                : `${data.playerName}が正解しました: ${data.answer}`;
-        });
+    Object.entries(scores).forEach(([player, score]) => {
+        const li = document.createElement("li");
+        li.textContent = `${player}: ${score} ポイント`;
+        scoreList.appendChild(li);
+    });
+});
 
-        socket.on("wrong_answer", (data) => {
-            messages.textContent = `${data.playerName} の回答は不正解: ${data.answer}`;
-        });
+    document.getElementById("readyButton").addEventListener("click", () => {
+    if (currentRoom && playerName) {
+        socket.emit("player_ready", { roomName: currentRoom, playerName });
+        document.getElementById("readyButton").disabled = true; // 二重押し防止
+    }
+});
 
-        socket.on("end_quiz", (message) => {
-            messages.textContent = message;
-            timeLeftElement.textContent = "0";
+// サーバーから受信する準備状況を表示
+socket.on("update_ready_status", (readyStatus) => {
+    const playersList = document.getElementById("players");
+    playersList.innerHTML = "";
+    Object.entries(readyStatus).forEach(([playerName, isReady]) => {
+        const li = document.createElement("li");
+        li.textContent = `${playerName} - ${isReady ? "準備完了" : "未準備"}`;
+        playersList.appendChild(li);
+    });
+});
+
+    socket.on("room_questions", (questions) => {
+        if (questions.length) {
+            loadQuestion(questions[0]);
+        } else {
+            alert("問題がありません。");
+        }
+    });
+
+    socket.on("timer_update", (timeLeft) => {
+        document.getElementById("timeLeft").textContent = timeLeft;
+    });
+
+    socket.on("wrong_answer", ({ playerName, answer }) => {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.textContent = `${playerName} が間違えました！`;
+
+    setTimeout(() => {
+        messagesDiv.textContent = ""; // メッセージを消去
+    }, 2000); // 2秒後に非表示
+});
+
+socket.on("correct_answer", ({ playerName }) => {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.textContent = `${playerName} が正解しました！`;
+
+    setTimeout(() => {
+        messagesDiv.textContent = ""; // メッセージを消去
+    }, 2000); // 2秒後にメッセージを非表示
+});
+
+socket.on("already_answered", ({ playerName }) => {
+    const messagesDiv = document.getElementById("messages");
+    if (playerName === playerName) {
+        messagesDiv.textContent = "あなたは既にこの問題に回答しています！";
+    }
+});
+
+socket.on("end_quiz", (message) => {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.textContent = message;
+
+    // クイズエリア・プレイヤーリスト・スコアはそのまま表示
+    document.getElementById("question").textContent = "クイズは終了しました！次回の問題をお待ちください。";
+    document.getElementById("choices").innerHTML = "";
+    document.getElementById("timeLeft").textContent = "0";
+});
+
+socket.on("show_correct_answer", ({ correctAnswer }) => {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.textContent = `正解は: ${correctAnswer}`;
+});
+
+function loadQuestion(question) {
+    const questionElement = document.getElementById("question");
+    const choicesElement = document.getElementById("choices");
+
+    // 選択肢を再表示
+    choicesElement.style.display = "block";
+
+    questionElement.textContent = question.question;
+    choicesElement.innerHTML = "";
+
+    question.choices.forEach((choice, index) => {
+        const button = document.createElement("button");
+        button.textContent = choice;
+        button.addEventListener("click", () => {
+            socket.emit("answer", { roomName: currentRoom, playerName, answer: index + 1 });
         });
+        choicesElement.appendChild(button);
+    });
+}
+
+// 正解表示後、選択肢を非表示にする
+socket.on("show_correct_answer", ({ correctAnswer }) => {
+    const messagesDiv = document.getElementById("messages");
+    const choicesElement = document.getElementById("choices");
+
+    // 正解を表示
+    messagesDiv.textContent = `正解は: ${correctAnswer}`;
+
+    // 選択肢を非表示
+    choicesElement.style.display = "none";
+
+    // 2秒後にメッセージを消去
+    setTimeout(() => {
+        messagesDiv.textContent = "";
+    }, 2000);
+});
+
     </script>
 </body>
 </html>

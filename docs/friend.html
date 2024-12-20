@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フレンドリスト</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>フレンドリスト</h1>
+    <ul id="friendList">
+        <!-- フレンドリストがここに表示されます -->
+    </ul>
+    <button id="backToHome">ホームへ戻る</button>
+
+    <!-- チャット用モーダル -->
+    <div id="chatModal" style="display: none;">
+        <h2 id="chatWith"></h2>
+        <div id="chatMessages" style="border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px;"></div>
+        <input id="chatInput" type="text" placeholder="メッセージを入力..." />
+        <button id="sendMessage">送信</button>
+        <button id="closeChat">閉じる</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const friendList = document.getElementById("friendList");
+        const chatModal = document.getElementById("chatModal");
+        const chatWith = document.getElementById("chatWith");
+        const chatMessages = document.getElementById("chatMessages");
+        const chatInput = document.getElementById("chatInput");
+        const sendMessageButton = document.getElementById("sendMessage");
+        const closeChatButton = document.getElementById("closeChat");
+
+        let currentChatRoom = null;
+        const username = localStorage.getItem("username"); // ログインしたユーザー名
+
+        const socket = io();
+
+        // ユーザー名をサーバーに登録
+        if (username) {
+            socket.emit("set_username", username);
+        }
+
+        // フレンドリストをロード
+        async function loadFriends() {
+            const roomName = localStorage.getItem("currentRoom");
+            if (!roomName) {
+                alert("ルーム名が設定されていません。");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/quiz-results?roomName=${roomName}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayFriends(result.scores);
+                } else {
+                    alert(result.message || "フレンドデータの取得に失敗しました。");
+                }
+            } catch (error) {
+                console.error("フレンドデータの取得中にエラーが発生しました:", error);
+            }
+        }
+
+        function displayFriends(scores) {
+            friendList.innerHTML = "";
+            scores.forEach(({ playerName }) => {
+                const listItem = document.createElement("li");
+                listItem.textContent = playerName;
+                listItem.style.cursor = "pointer";
+                friendList.appendChild(listItem);
+            });
+        }
+
+        // フレンドをクリックした時の処理
+        friendList.addEventListener("click", (event) => {
+            if (event.target.tagName === "LI") {
+                const selectedUser = event.target.textContent;
+
+                // ユニークなチャットルーム名を生成（アルファベット順）
+                currentChatRoom = [username, selectedUser].sort().join("&");
+                chatWith.textContent = `チャット: ${currentChatRoom}`;
+                chatMessages.innerHTML = "";
+
+                // ソケットイベントをリセットしてから履歴を取得
+                socket.off("receive_message");
+                socket.on("receive_message", ({ roomKey, sender, message }) => {
+                    if (currentChatRoom === roomKey) {
+                        displayMessage(sender, message);
+                    }
+                });
+
+                // サーバーからチャット履歴を取得
+                socket.emit("get_chat_history", { roomKey: currentChatRoom }, (response) => {
+                    if (response.success) {
+                        response.messages.forEach(({ sender, message }) => {
+                            displayMessage(sender, message);
+                        });
+                    } else {
+                        console.error("Failed to load chat history:", response.message);
+                    }
+                });
+
+                chatModal.style.display = "block";
+            }
+        });
+
+        // メッセージ送信
+        sendMessageButton.addEventListener("click", () => {
+            const message = chatInput.value.trim();
+            if (message && currentChatRoom) {
+                socket.emit("send_message", { roomKey: currentChatRoom, message });
+                displayMessage("自分", message);
+                chatInput.value = "";
+            }
+        });
+
+        // チャットを閉じる
+        closeChatButton.addEventListener("click", () => {
+            chatModal.style.display = "none";
+        });
+
+        function displayMessage(sender, message) {
+            const messageElement = document.createElement("div");
+            messageElement.textContent = `${sender}: ${message}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // スクロールを一番下に
+        }
+
+        // ホーム画面に戻る処理
+        document.getElementById("backToHome").addEventListener("click", () => {
+            window.location.href = "/home";
+        });
+
+        // ページロード時にフレンドリストを取得
+        loadFriends();
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成績表</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>クイズ成績表</h1>
+    <table id="resultsTable" border="1">
+        <thead>
+            <tr>
+                <th>プレイヤー名</th>
+                <th>スコア</th>
+                <th>答えた問題</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 成績データがここに表示されます -->
+        </tbody>
+    </table>
+    <button id="backToHome">ホームへ戻る</button>
+    <button id="viewFriends">フレンドリスト</button>
+
+    <script>
+        // ホームに戻るボタンの処理
+        document.getElementById("backToHome").addEventListener("click", () => {
+            window.location.href = "/home";
+        });
+
+        // フレンド画面に移動する処理
+        document.getElementById("viewFriends").addEventListener("click", () => {
+            window.location.href = "/friend.html";
+        });
+
+        // 成績データを取得して表示する
+        async function loadResults() {
+        const roomName = localStorage.getItem("currentRoom"); // ルーム名を取得
+        if (!roomName) {
+            alert("ルーム名が設定されていません。");
+            return;
+        }
+
+        // フレンド画面用にルーム名を保存
+        localStorage.setItem("lastViewedRoom", roomName);
+
+        try {
+            const response = await fetch(`/quiz-results?roomName=${roomName}`);
+            const result = await response.json();
+
+            if (result.success) {
+                displayResults(result.scores);
+            } else {
+                alert(result.message || "成績データの取得に失敗しました。");
+            }
+        } catch (error) {
+            console.error("成績データの取得中にエラーが発生しました:", error);
+        }
+    }
+
+    function displayResults(scores) {
+    const tbody = document.getElementById("resultsTable").querySelector("tbody");
+    tbody.innerHTML = "";
+
+    scores.forEach(({ playerName, score, answers }) => {
+        const row = document.createElement("tr");
+
+        // プレイヤー名とスコア
+        row.innerHTML = `<td>${playerName}</td><td>${score}</td>`;
+
+        // 答えた問題のリスト
+        const answerCell = document.createElement("td");
+        const answerList = answers.map(({ question, choices, answer, correct, explanation }) => {
+            const choicesList = choices.map((choice, index) => {
+                return `<li>${index + 1}: ${choice}</li>`;
+            }).join("");
+
+            return `
+                <div class="answer-item">
+                    <span class="question-text">${question} - あなたの回答: ${answer} (${correct ? "正解" : "不正解"})</span>
+                    <div class="answer-details" style="display: none;">
+                        <p>選択肢:</p>
+                        <ul>${choicesList}</ul>
+                        <p>正解: ${correct ? answer : choices[question.answer - 1]}</p>
+                        <p>解説: ${explanation || "解説がありません。"}</p>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        answerCell.innerHTML = `<div>${answerList}</div>`;
+        row.appendChild(answerCell);
+
+        tbody.appendChild(row);
+    });
+
+    attachAnswerClickHandlers();
+}
+
+function attachAnswerClickHandlers() {
+    const questionElements = document.querySelectorAll(".question-text");
+
+    questionElements.forEach((questionElement) => {
+        questionElement.addEventListener("click", () => {
+            const details = questionElement.nextElementSibling; // 詳細部分
+            if (details.style.display === "none") {
+                details.style.display = "block";
+            } else {
+                details.style.display = "none";
+            }
+        });
+    });
+}
+
+    // ページロード時に成績を取得
+    loadResults();
+      
+    </script>
+</body>
+</html>
+
