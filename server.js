@@ -13,7 +13,7 @@ const playerReadyStatus = {}; // プレイヤーの準備状況を管理
 const playerScores = {}; // 各プレイヤーのスコアを管理
 const playerAnswers = {}; // 各ルームごとのプレイヤーの回答履歴を記録
 const privateChats = {}; // プライベートチャット用
-const posts = []; // 投稿データを保持する配列
+const boardPosts = []; // 投稿データを保持
 
 io.on("connection", (socket) => {
     console.log("A user connected");
@@ -421,38 +421,69 @@ app.get("/board.html", (req, res) => {
     res.sendFile(__dirname + "/docs/board.html");
 });
 
-// 投稿を取得
-app.get("/api/posts", (req, res) => {
-    res.json({ success: true, posts });
-});
+app.post("/add-post", (req, res) => {
+    const { username, message } = req.body;
 
-// 投稿を追加
-app.post("/api/posts", (req, res) => {
-    const { username } = req.session.user || {};
-    const { content } = req.body;
-
-    if (!username) {
-        return res.status(401).json({ success: false, message: "ログインが必要です。" });
-    }
-
-    if (!content || content.trim() === "") {
-        return res.status(400).json({ success: false, message: "投稿内容が空です。" });
+    if (!username || !message) {
+        return res.status(400).json({ success: false, message: "ユーザー名またはメッセージがありません。" });
     }
 
     const post = {
-        id: posts.length + 1,
         username,
-        content,
-        timestamp: new Date(),
+        message,
+        timestamp: new Date().toISOString(),
     };
 
-    posts.push(post);
-    io.emit("new_post", post); // リアルタイム更新
-    res.json({ success: true, post });
+    boardPosts.push(post);
+
+    io.emit("new_post", post); // 新しい投稿を全員に通知
+    res.json({ success: true, message: "投稿が成功しました。" });
+});
+
+app.get("/get-posts", (req, res) => {
+    res.json({ success: true, posts: boardPosts });
+});
+
+app.post("/add-category-post", (req, res) => {
+    const { category, username, message } = req.body;
+
+    if (!category || !username || !message) {
+        return res.status(400).json({ success: false, message: "カテゴリ、名前、またはメッセージが不足しています。" });
+    }
+
+    if (!boardPosts[category]) boardPosts[category] = [];
+
+    const post = {
+        username,
+        message,
+        timestamp: new Date().toISOString(),
+    };
+
+    boardPosts[category].push(post);
+
+    // 指定されたカテゴリ内の掲示板に通知
+    io.to(category).emit("new_category_post", { category, post });
+    res.json({ success: true, message: "投稿が追加されました。" });
+});
+
+app.get("/get-category-posts/:category", (req, res) => {
+    const { category } = req.params;
+
+    if (!category || !boardPosts[category]) {
+        return res.status(404).json({ success: false, message: "指定されたカテゴリは存在しません。" });
+    }
+
+    res.json({ success: true, posts: boardPosts[category] });
+});
+
+app.get("/get-username", (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: "未ログインです。" });
+    }
+    res.json({ success: true, username: req.session.user.id });
 });
 
 
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-

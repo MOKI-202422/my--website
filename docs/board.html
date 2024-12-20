@@ -5,78 +5,140 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>掲示板</title>
     <link rel="stylesheet" href="style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const socket = io();
+            let username = "";
+            let currentCategory = "自由掲示板"; // 初期値を自由掲示板とする
+
+            // ユーザーIDを取得
+            async function fetchUsername() {
+                const response = await fetch("/get-username");
+                const result = await response.json();
+                if (result.success) {
+                    username = result.username;
+                    document.getElementById("username").value = username;
+                    document.getElementById("username").readOnly = true;
+                } else {
+                    alert("ユーザー名の取得に失敗しました。ログインしてください。");
+                    window.location.href = "/";
+                }
+            }
+
+            // カテゴリ一覧を取得
+            async function fetchCategories() {
+                const response = await fetch("/categories");
+                const result = await response.json();
+
+                const categorySelect = document.getElementById("categorySelect");
+                categorySelect.innerHTML = `<option value="自由掲示板">自由掲示板</option>`; // デフォルト
+
+                if (result.success) {
+                    result.categories.forEach(({ name }) => {
+                        const option = document.createElement("option");
+                        option.value = name;
+                        option.textContent = name;
+                        categorySelect.appendChild(option);
+                    });
+                }
+            }
+
+            // カテゴリ選択時の投稿ロード
+            document.getElementById("categorySelect").addEventListener("change", async (e) => {
+                currentCategory = e.target.value;
+                loadPosts(currentCategory);
+            });
+
+            // 投稿をサーバーに送信
+            document.getElementById("submitPost").addEventListener("click", async () => {
+                const message = document.getElementById("message").value;
+
+                if (!username || !message) {
+                    alert("メッセージを入力してください。");
+                    return;
+                }
+
+                const endpoint =
+                    currentCategory === "自由掲示板" ? "/add-post" : "/add-category-post";
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ category: currentCategory, username, message }),
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById("message").value = "";
+                    alert("投稿が完了しました！");
+                } else {
+                    alert(result.message);
+                }
+            });
+
+            // 投稿をロード
+            async function loadPosts(category) {
+                const endpoint =
+                    category === "自由掲示板"
+                        ? "/get-posts"
+                        : `/get-category-posts/${category}`;
+
+                const response = await fetch(endpoint);
+                const result = await response.json();
+
+                const postsDiv = document.getElementById("posts");
+                postsDiv.innerHTML = "";
+
+                if (result.success) {
+                    result.posts.forEach((post) => addPostToBoard(post));
+                } else {
+                    postsDiv.innerHTML = "<p>投稿がありません。</p>";
+                }
+            }
+
+            // 投稿を掲示板に追加
+            function addPostToBoard(post) {
+                const postsDiv = document.getElementById("posts");
+                const postDiv = document.createElement("div");
+
+                postDiv.innerHTML = `
+                    <p><strong>${post.username}</strong> (${new Date(post.timestamp).toLocaleString()})</p>
+                    <p>${post.message}</p>
+                    <hr>
+                `;
+
+                postsDiv.prepend(postDiv);
+            }
+
+            socket.on("new_category_post", ({ category, post }) => {
+                if (currentCategory === category) {
+                    addPostToBoard(post);
+                }
+            });
+
+            fetchUsername();
+            fetchCategories();
+            loadPosts(currentCategory);
+        });
+    </script>
 </head>
 <body>
     <h1>掲示板</h1>
-    <form id="postForm">
-        <textarea id="postContent" placeholder="投稿内容を入力してください..." required></textarea>
-        <button type="submit">投稿する</button>
-    </form>
-    <div id="postList">
-        <!-- 投稿一覧をここに表示 -->
+    <div>
+        <label for="categorySelect">掲示板を選択:</label>
+        <select id="categorySelect">
+            <option value="自由掲示板">自由掲示板</option>
+        </select>
+    </div>
+    <div>
+        <input type="text" id="username" placeholder="名前" readonly>
+        <textarea id="message" placeholder="メッセージを入力してください"></textarea>
+        <button id="submitPost">投稿</button>
+    </div>
+    <div id="posts">
+        <!-- 投稿がここに追加されます -->
     </div>
     <button onclick="window.location.href='/home'">ホームに戻る</button>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const postForm = document.getElementById("postForm");
-        const postContent = document.getElementById("postContent");
-        const postList = document.getElementById("postList");
-
-        // 投稿一覧を取得して表示
-        function loadPosts() {
-            fetch("/api/posts")
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.success) {
-                        postList.innerHTML = "";
-                        data.posts.forEach((post) => {
-                            addPostToList(post);
-                        });
-                    }
-                });
-        }
-
-        // 投稿をリストに追加
-        function addPostToList(post) {
-            const postItem = document.createElement("div");
-            postItem.className = "post";
-            postItem.innerHTML = `
-                <p><strong>${post.username}</strong> (${new Date(post.timestamp).toLocaleString()})</p>
-                <p>${post.content}</p>
-            `;
-            postList.prepend(postItem); // 新しい投稿を先頭に追加
-        }
-
-        // 投稿フォームの送信
-        postForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const content = postContent.value.trim();
-            if (!content) return;
-
-            fetch("/api/posts", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content }),
-            })
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.success) {
-                        postContent.value = ""; // フォームをリセット
-                    } else {
-                        alert(data.message);
-                    }
-                });
-        });
-
-        // サーバーからの新しい投稿を受信
-        socket.on("new_post", (post) => {
-            addPostToList(post);
-        });
-
-        // 初期ロード
-        loadPosts();
-    </script>
 </body>
 </html>
