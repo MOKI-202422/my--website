@@ -68,22 +68,67 @@
             friendList.innerHTML = "";
             scores.forEach(({ playerName }) => {
                 const listItem = document.createElement("li");
-                listItem.textContent = playerName;
-                listItem.style.cursor = "pointer";
+                listItem.style.marginBottom = "10px";
+
+                const friendName = document.createElement("span");
+                friendName.textContent = playerName;
+                friendName.style.cursor = "pointer";
+
+                const viewStudyTimeButton = document.createElement("button");
+                viewStudyTimeButton.textContent = "勉強時間を見る";
+                viewStudyTimeButton.style.marginLeft = "10px";
+                viewStudyTimeButton.addEventListener("click", () => {
+                    viewStudyTime(playerName);
+                });
+
+                const chatButton = document.createElement("button");
+                chatButton.textContent = "チャットする";
+                chatButton.style.marginLeft = "10px";
+                chatButton.addEventListener("click", () => {
+                    openChat(playerName);
+                });
+
+                listItem.appendChild(friendName);
+                listItem.appendChild(viewStudyTimeButton);
+                listItem.appendChild(chatButton);
                 friendList.appendChild(listItem);
             });
         }
 
-        // フレンドをクリックした時の処理
-        friendList.addEventListener("click", (event) => {
-            if (event.target.tagName === "LI") {
-                const selectedUser = event.target.textContent;
+        // 勉強時間を取得して表示する関数
+        async function viewStudyTime(playerName) {
+            try {
+                const response = await fetch(`/get-study-data/${playerName}`);
+                const result = await response.json();
 
-                // ユニークなチャットルーム名を生成（アルファベット順）
-                currentChatRoom = [username, selectedUser].sort().join("&");
-                chatWith.textContent = `チャット: ${currentChatRoom}`;
-                chatMessages.innerHTML = "";
+                if (result.success) {
+                    modalTitle.textContent = `${playerName}の勉強時間`;
+                    modalContent.innerHTML = "";
+                    result.studyRecords.forEach(record => {
+                        const recordElement = document.createElement("div");
+                        recordElement.textContent = `日付: ${record.date}, 時間: ${record.time}時間, 内容: ${record.content}`;
+                        modalContent.appendChild(recordElement);
+                    });
 
+                    modalInput.style.display = "none";
+                    sendMessageButton.style.display = "none";
+                    modal.style.display = "block";
+                } else {
+                    alert(result.message || "勉強記録を取得できませんでした。");
+                }
+            } catch (error) {
+                console.error("勉強記録の取得中にエラーが発生しました:", error);
+            }
+        }
+
+        // チャットを開く
+        function openChat(playerName) {
+            currentChatRoom = [username, playerName].sort().join("&");
+            modalTitle.textContent = `チャット: ${playerName}`;
+            modalContent.innerHTML = "";
+            modalInput.style.display = "block";
+            sendMessageButton.style.display = "block";
+            modal.style.display = "block";
                 // ソケットイベントをリセットしてから履歴を取得
                 socket.off("receive_message");
                 socket.on("receive_message", ({ roomKey, sender, message }) => {
@@ -104,8 +149,7 @@
                 });
 
                 chatModal.style.display = "block";
-            }
-        });
+            };
 
         // メッセージ送信
         sendMessageButton.addEventListener("click", () => {

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勉強時間</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>勉強時間の記録</h1>
+    <form id="studyForm">
+        <label for="date">日付:</label>
+        <input type="date" id="date" required>
+        <label for="time">時間 (時間単位):</label>
+        <input type="number" id="time" step="0.1" required>
+        <label for="content">内容:</label>
+        <input type="text" id="content" required>
+        <button type="submit">記録する</button>
+    </form>
+    <canvas id="studyChart" width="400" height="200"></canvas>
+
+    <script>
+        const studyData = []; // 入力データを保持
+    
+        const ctx = document.getElementById('studyChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return `${context.dataset.label}: ${context.raw} 時間`;
+                            }
+                        }
+                    }
+                },
+                responsive: true,
+                scales: {
+                    x: {
+                        stacked: true
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "勉強時間 (時間)"
+                        }
+                    }
+                }
+            }
+        });
+    
+        document.getElementById('studyForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const date = document.getElementById('date').value;
+            const time = parseFloat(document.getElementById('time').value);
+            const content = document.getElementById('content').value;
+    
+            if (!date || !time || !content) return;
+    
+            fetch('/add-study', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, time, content })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    studyData.push({ date, time, content });
+                    updateChart();
+                } else {
+                    alert(data.message);
+                }
+            });
+        });
+    
+        function updateChart() {
+            // 日付順にソート
+            const sortedData = studyData.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+            // ラベル（x軸）を生成
+            const uniqueDates = [...new Set(sortedData.map(item => item.date))];
+    
+            // データセットを生成
+            const datasets = {};
+            sortedData.forEach(item => {
+                if (!datasets[item.content]) {
+                    datasets[item.content] = {
+                        label: item.content,
+                        data: Array(uniqueDates.length).fill(0),
+                        backgroundColor: getRandomColor()
+                    };
+                }
+                const dateIndex = uniqueDates.indexOf(item.date);
+                datasets[item.content].data[dateIndex] += item.time;
+            });
+    
+            chart.data.labels = uniqueDates;
+            chart.data.datasets = Object.values(datasets);
+            chart.update();
+        }
+    
+        // ランダムな色を生成
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+    
+        // 初期データをロード
+        fetch('/get-study-data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    studyData.push(...data.studyRecords);
+                    updateChart();
+                }
+            });
+    </script>
+    
+</body>
+</html>
