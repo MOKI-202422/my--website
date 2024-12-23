@@ -507,7 +507,22 @@ app.get("/get-study-data", (req, res) => {
     res.json({ success: true, studyRecords });
 });
 
+// フレンドの勉強記録を取得
+app.get("/get-friend-study-data", (req, res) => {
+    const { username } = req.query;
+
+    if (!username || !users[username]) {
+        return res.status(404).json({ success: false, message: "指定されたユーザーが見つかりません。" });
+    }
+
+    // サンプルデータ: フレンドの勉強記録
+    // 実際にはデータベースから取得する必要があります。
+    const friendStudyData = studyRecords.filter((record) => record.username === username);
+
+    res.json({ success: true, studyRecords: friendStudyData });
+});
+
+
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
