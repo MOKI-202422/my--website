@@ -9,6 +9,11 @@
 </head>
 <body>
     <h1>勉強時間の記録</h1>
+    <h2>月選択</h2>
+<select id="monthSelect">
+    <option value="">全期間</option>
+</select>
+
     <form id="studyForm">
         <label for="date">日付:</label>
         <input type="date" id="date" required>
@@ -21,8 +26,9 @@
     <canvas id="studyChart" width="400" height="200"></canvas>
 
     <script>
-        const studyData = []; // 入力データを保持
-    
+         const studyData = []; // 勉強記録を保持
+        let groupedByMonth = {}; // 月ごとのデータ
+
         const ctx = document.getElementById('studyChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'bar',
@@ -56,15 +62,15 @@
                 }
             }
         });
-    
+
         document.getElementById('studyForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const date = document.getElementById('date').value;
             const time = parseFloat(document.getElementById('time').value);
             const content = document.getElementById('content').value;
-    
+
             if (!date || !time || !content) return;
-    
+
             fetch('/add-study', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -74,20 +80,34 @@
             .then(data => {
                 if (data.success) {
                     studyData.push({ date, time, content });
+                    groupedByMonth = groupDataByMonth(studyData);
+                    updateMonthSelector();
                     updateChart();
                 } else {
                     alert(data.message);
                 }
             });
         });
-    
-        function updateChart() {
+
+        document.getElementById('monthSelect').addEventListener('change', (e) => {
+            const selectedMonth = e.target.value;
+            updateChart(selectedMonth);
+        });
+
+        function updateChart(selectedMonth = "") {
+            // 月ごとにデータをグループ化
+            groupedByMonth = groupDataByMonth(studyData);
+
+            let chartData = selectedMonth 
+                ? groupedByMonth[selectedMonth] || [] // 選択された月のデータ
+                : studyData; // 全期間
+
             // 日付順にソート
-            const sortedData = studyData.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+            const sortedData = chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
             // ラベル（x軸）を生成
             const uniqueDates = [...new Set(sortedData.map(item => item.date))];
-    
+
             // データセットを生成
             const datasets = {};
             sortedData.forEach(item => {
@@ -101,12 +121,34 @@
                 const dateIndex = uniqueDates.indexOf(item.date);
                 datasets[item.content].data[dateIndex] += item.time;
             });
-    
+
             chart.data.labels = uniqueDates;
             chart.data.datasets = Object.values(datasets);
             chart.update();
         }
-    
+
+        function groupDataByMonth(data) {
+            return data.reduce((acc, item) => {
+                const month = item.date.slice(0, 7); // "YYYY-MM"形式
+                if (!acc[month]) acc[month] = [];
+                acc[month].push(item);
+                return acc;
+            }, {});
+        }
+
+        // 月セレクトボックスを更新
+        function updateMonthSelector() {
+            const uniqueMonths = [...new Set(studyData.map(item => item.date.slice(0, 7)))];
+            const monthSelect = document.getElementById('monthSelect');
+            monthSelect.innerHTML = '<option value="">全期間</option>';
+            uniqueMonths.forEach(month => {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = `${month} (勉強記録 ${groupedByMonth[month]?.length || 0} 件)`;
+                monthSelect.appendChild(option);
+            });
+        }
+
         // ランダムな色を生成
         function getRandomColor() {
             const letters = '0123456789ABCDEF';
@@ -116,13 +158,15 @@
             }
             return color;
         }
-    
+
         // 初期データをロード
         fetch('/get-study-data')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     studyData.push(...data.studyRecords);
+                    groupedByMonth = groupDataByMonth(studyData);
+                    updateMonthSelector();
                     updateChart();
                 }
             });
@@ -130,3 +174,4 @@
     
 </body>
 </html>
+
