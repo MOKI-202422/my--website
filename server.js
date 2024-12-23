@@ -522,6 +522,25 @@ app.get("/get-friend-study-data", (req, res) => {
     res.json({ success: true, studyRecords: friendStudyData });
 });
 
+app.get("/quiz-results", (req, res) => {
+    const roomName = req.query.roomName;
+    console.log("Received roomName:", roomName); // ログ追加
+
+    if (!roomName || !playerScores[roomName]) {
+        console.log("No scores for room:", roomName); // ログ追加
+        return res.json({ success: false, message: "成績データがありません。" });
+    }
+
+    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
+        playerName,
+        score,
+        answers: playerAnswers[roomName]?.[playerName] || [],
+    }));
+
+    console.log("Scores for room:", scores); // ログ追加
+    res.json({ success: true, scores });
+});
+
 
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);

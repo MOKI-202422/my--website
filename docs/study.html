@@ -172,10 +172,14 @@
                 .then(result => {
                     if (result.success) {
                         displayFriends(result.scores.map(({ playerName }) => playerName));
+                    } else {
+                        console.error("Failed to load friends:", result.message);
+                        alert(result.message || "フレンドデータの取得に失敗しました。");
                     }
-                });
+                })
+                .catch(error => console.error("Error fetching friends:", error));
         }
-
+        
         function displayFriends(friends) {
             friendList.innerHTML = "";
             friends.forEach(friend => {
