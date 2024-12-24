@@ -160,31 +160,19 @@
         }
 
         // 初期データをロード
-        document.addEventListener("DOMContentLoaded", () => {
-            const username = localStorage.getItem("studyUsername");
-            const studyDataFromStorage = JSON.parse(localStorage.getItem("studyData"));
-
-            if (username && studyDataFromStorage) {
-                document.getElementById("userTitle").textContent = `${username}さんの勉強時間`;
-                studyData.push(...studyDataFromStorage);
-                groupedByMonth = groupDataByMonth(studyData);
-                updateMonthSelector();
-                updateChart();
-            } else {
-                // 通常の全体データをロード
-                fetch('/get-study-data')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            studyData.push(...data.studyRecords);
-                            groupedByMonth = groupDataByMonth(studyData);
-                            updateMonthSelector();
-                            updateChart();
-                        }
-                    });
-            }
-        });
+        fetch('/get-study-data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    studyData.push(...data.studyRecords);
+                    groupedByMonth = groupDataByMonth(studyData);
+                    updateMonthSelector();
+                    updateChart();
+                }
+            });
     </script>
     
 </body>
 </html>
+
+
