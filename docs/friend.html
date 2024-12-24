@@ -65,28 +65,27 @@
         }
 
         function displayFriends(scores) {
-            friendList.innerHTML = "";
-            scores.forEach(({ playerName }) => {
-                const listItem = document.createElement("li");
+    friendList.innerHTML = "";
+    scores.forEach(({ playerName }) => {
+        const listItem = document.createElement("li");
 
-                const userLabel = document.createElement("span");
-                userLabel.textContent = playerName;
+        const userLabel = document.createElement("span");
+        userLabel.textContent = playerName;
 
-                // 勉強時間ボタンを追加
-                const studyButton = document.createElement("button");
-                studyButton.textContent = "勉強時間";
-                studyButton.style.marginLeft = "10px";
-                studyButton.onclick = () => showStudyData(playerName);
+        const studyButton = document.createElement("button");
+        studyButton.textContent = "勉強時間";
+        studyButton.style.marginLeft = "10px";
+        studyButton.onclick = () => showStudyData(playerName);
 
-                listItem.appendChild(userLabel);
-                listItem.appendChild(studyButton);
-                listItem.style.cursor = "pointer";
-                friendList.appendChild(listItem);
-            });
-        }
+        listItem.appendChild(userLabel);
+        listItem.appendChild(studyButton);
+        listItem.style.cursor = "pointer";
+        friendList.appendChild(listItem);
+    });
+}
 
-        // 勉強時間データを表示する
-        function showStudyData(playerName) {
+ // 勉強時間データを表示する
+ function showStudyData(playerName) {
             fetch(`/get-user-study-data/${playerName}`)
                 .then(response => response.json())
                 .then(data => {

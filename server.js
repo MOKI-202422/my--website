@@ -14,7 +14,8 @@ const playerScores = {}; // 各プレイヤーのスコアを管理
 const playerAnswers = {}; // 各ルームごとのプレイヤーの回答履歴を記録
 const privateChats = {}; // プライベートチャット用
 const boardPosts = []; // 投稿データを保持
-const studyRecords = []; // メモリ内で勉強記録を管理
+const studyRecords = {}; // ユーザごとの勉強記録を管理
+
 
 io.on("connection", (socket) => {
     console.log("A user connected");
@@ -495,17 +496,31 @@ app.post("/add-study", (req, res) => {
     const { date, time, content } = req.body;
     const username = req.session.user?.id;
 
+    if (!username) {
+        return res.status(401).json({ success: false, message: "ログインが必要です。" });
+    }
+
     if (!date || !time || !content) {
         return res.status(400).json({ success: false, message: "全ての項目を記入してください。" });
     }
 
-    studyRecords.push({ date, time, content, username });
+    if (!studyRecords[username]) studyRecords[username] = []; // 初期化
+    studyRecords[username].push({ date, time, content });
+
     res.json({ success: true, message: "勉強記録が追加されました。" });
 });
 
+
 // 勉強記録を取得
 app.get("/get-study-data", (req, res) => {
-    res.json({ success: true, studyRecords });
+    const username = req.session.user?.id;
+
+    if (!username) {
+        return res.status(401).json({ success: false, message: "ログインが必要です。" });
+    }
+
+    const userRecords = studyRecords[username] || [];
+    res.json({ success: true, studyRecords: userRecords });
 });
 
 // 特定のユーザーの勉強記録を取得
@@ -529,4 +544,3 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-

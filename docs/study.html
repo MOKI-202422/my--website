@@ -159,8 +159,8 @@
             return color;
         }
 
-       // 初期データをロード
-       document.addEventListener("DOMContentLoaded", () => {
+        // 初期データをロード
+        document.addEventListener("DOMContentLoaded", () => {
             const username = localStorage.getItem("studyUsername");
             const studyDataFromStorage = JSON.parse(localStorage.getItem("studyData"));
 
@@ -184,13 +184,7 @@
                     });
             }
         });
-
-        // フレンドリストに戻る
-        document.getElementById("backToFriends").addEventListener("click", () => {
-            window.location.href = "/friend.html";
-        });
     </script>
     
 </body>
 </html>
-
