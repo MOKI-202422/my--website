@@ -493,12 +493,13 @@ app.get("/study.html", (req, res) => {
 // 勉強記録を追加
 app.post("/add-study", (req, res) => {
     const { date, time, content } = req.body;
+    const username = req.session.user?.id;
 
     if (!date || !time || !content) {
         return res.status(400).json({ success: false, message: "全ての項目を記入してください。" });
     }
 
-    studyRecords.push({ date, time, content });
+    studyRecords.push({ date, time, content, username });
     res.json({ success: true, message: "勉強記録が追加されました。" });
 });
 
@@ -507,41 +508,25 @@ app.get("/get-study-data", (req, res) => {
     res.json({ success: true, studyRecords });
 });
 
-// フレンドの勉強記録を取得
-app.get("/get-friend-study-data", (req, res) => {
-    const { username } = req.query;
+// 特定のユーザーの勉強記録を取得
+app.get("/get-user-study-data/:username", (req, res) => {
+    const { username } = req.params;
 
-    if (!username || !users[username]) {
-        return res.status(404).json({ success: false, message: "指定されたユーザーが見つかりません。" });
+    if (!username) {
+        return res.status(400).json({ success: false, message: "ユーザー名が指定されていません。" });
     }
 
-    // サンプルデータ: フレンドの勉強記録
-    // 実際にはデータベースから取得する必要があります。
-    const friendStudyData = studyRecords.filter((record) => record.username === username);
+    const userStudyData = studyRecords.filter(record => record.username === username);
 
-    res.json({ success: true, studyRecords: friendStudyData });
-});
-
-app.get("/quiz-results", (req, res) => {
-    const roomName = req.query.roomName;
-    console.log("Received roomName:", roomName); // ログ追加
-
-    if (!roomName || !playerScores[roomName]) {
-        console.log("No scores for room:", roomName); // ログ追加
-        return res.json({ success: false, message: "成績データがありません。" });
+    if (!userStudyData.length) {
+        return res.json({ success: true, studyRecords: [], message: "このユーザーの記録はありません。" });
     }
 
-    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
-        playerName,
-        score,
-        answers: playerAnswers[roomName]?.[playerName] || [],
-    }));
-
-    console.log("Scores for room:", scores); // ログ追加
-    res.json({ success: true, scores });
+    res.json({ success: true, studyRecords: userStudyData });
 });
 
 
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+

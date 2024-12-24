@@ -23,18 +23,11 @@
         <input type="text" id="content" required>
         <button type="submit">記録する</button>
     </form>
-    <h2>フレンドリスト</h2>
-<ul id="friendList">
-    <!-- フレンドリストがここに表示されます -->
-</ul>
-
     <canvas id="studyChart" width="400" height="200"></canvas>
 
     <script>
          const studyData = []; // 勉強記録を保持
         let groupedByMonth = {}; // 月ごとのデータ
-        const friendList = document.getElementById("friendList");
-        const chartTitle = document.getElementById("chartTitle");
 
         const ctx = document.getElementById('studyChart').getContext('2d');
         const chart = new Chart(ctx, {
@@ -166,80 +159,36 @@
             return color;
         }
 
-        function loadFriends() {
-            fetch("/quiz-results?roomName=yourRoomName")
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        displayFriends(result.scores.map(({ playerName }) => playerName));
-                    } else {
-                        console.error("Failed to load friends:", result.message);
-                        alert(result.message || "フレンドデータの取得に失敗しました。");
-                    }
-                })
-                .catch(error => console.error("Error fetching friends:", error));
-        }
-        
-        function displayFriends(friends) {
-            friendList.innerHTML = "";
-            friends.forEach(friend => {
-                const listItem = document.createElement("li");
-                listItem.textContent = friend;
-                listItem.style.cursor = "pointer";
-                listItem.addEventListener("click", () => loadFriendStudyData(friend));
-                friendList.appendChild(listItem);
-            });
-        }
+       // 初期データをロード
+       document.addEventListener("DOMContentLoaded", () => {
+            const username = localStorage.getItem("studyUsername");
+            const studyDataFromStorage = JSON.parse(localStorage.getItem("studyData"));
 
-        function loadFriendStudyData(friend) {
-            fetch(`/get-friend-study-data?username=${encodeURIComponent(friend)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateChartWithFriendData(data.studyRecords, friend);
-                    } else {
-                        alert(data.message);
-                    }
-                });
-        }
+            if (username && studyDataFromStorage) {
+                document.getElementById("userTitle").textContent = `${username}さんの勉強時間`;
+                studyData.push(...studyDataFromStorage);
+                groupedByMonth = groupDataByMonth(studyData);
+                updateMonthSelector();
+                updateChart();
+            } else {
+                // 通常の全体データをロード
+                fetch('/get-study-data')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            studyData.push(...data.studyRecords);
+                            groupedByMonth = groupDataByMonth(studyData);
+                            updateMonthSelector();
+                            updateChart();
+                        }
+                    });
+            }
+        });
 
-        function updateChartWithFriendData(friendStudyData, friendName) {
-            groupedByMonth = groupDataByMonth(friendStudyData);
-
-            const sortedData = friendStudyData.sort((a, b) => new Date(a.date) - new Date(b.date));
-            const uniqueDates = [...new Set(sortedData.map(item => item.date))];
-
-            const datasets = {};
-            sortedData.forEach(item => {
-                if (!datasets[item.content]) {
-                    datasets[item.content] = {
-                        label: item.content,
-                        data: Array(uniqueDates.length).fill(0),
-                        backgroundColor: getRandomColor()
-                    };
-                }
-                const dateIndex = uniqueDates.indexOf(item.date);
-                datasets[item.content].data[dateIndex] += item.time;
-            });
-
-            chart.data.labels = uniqueDates;
-            chart.data.datasets = Object.values(datasets);
-            chart.update();
-
-            chartTitle.textContent = `${friendName} の勉強時間`;
-        }
-
-        // 初期データをロード
-        fetch('/get-study-data')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    studyData.push(...data.studyRecords);
-                    groupedByMonth = groupDataByMonth(studyData);
-                    updateMonthSelector();
-                    updateChart();
-                }
-            });
+        // フレンドリストに戻る
+        document.getElementById("backToFriends").addEventListener("click", () => {
+            window.location.href = "/friend.html";
+        });
     </script>
     
 </body>
