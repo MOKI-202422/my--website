@@ -15,8 +15,6 @@ const playerAnswers = {}; // 各ルームごとのプレイヤーの回答履歴
 const privateChats = {}; // プライベートチャット用
 const boardPosts = []; // 投稿データを保持
 const studyRecords = {}; // ユーザごとの勉強記録を管理
-const quizResultsHistory = {}; // 各ルームごとの成績履歴
-
 
 io.on("connection", (socket) => {
     console.log("A user connected");
@@ -129,18 +127,6 @@ function resetScores(roomName) {
 
 // クイズ終了時の処理
 function endQuiz(roomName) {
-    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
-        playerName,
-        score,
-        answers: playerAnswers[roomName]?.[playerName] || [], // 回答履歴を保存
-    }));
-
-    // 履歴に追加
-    if (!quizResultsHistory[roomName]) {
-        quizResultsHistory[roomName] = [];
-    }
-    quizResultsHistory[roomName].push(scores);
-
     io.to(roomName).emit("end_quiz", "クイズが終了しました！");
     resetScores(roomName); // スコアをリセット
 }
@@ -174,7 +160,6 @@ function startQuestionTimer(roomName, questions) {
         }
     }, 1000);
 }
-
 
 function nextQuestion(roomName, questions) {
     playerReadyStatus[roomName].currentQuestion++;
@@ -426,15 +411,20 @@ app.get("/results.html", (req, res) => {
 });
 
 // 成績データを返すエンドポイント
-app.get("/quiz-results-history", (req, res) => {
-    const roomName = req.query.roomName;
-    if (!roomName || !quizResultsHistory[roomName]) {
-        return res.json({ success: false, message: "成績履歴がありません。" });
+app.get("/quiz-results", (req, res) => {
+    const roomName = req.query.roomName; // クエリパラメータからルーム名を取得
+    if (!roomName || !playerScores[roomName]) {
+        return res.json({ success: false, message: "成績データがありません。" });
     }
 
-    res.json({ success: true, history: quizResultsHistory[roomName] });
-});
+    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
+        playerName,
+        score,
+        answers: playerAnswers[roomName]?.[playerName] || [], // プレイヤーの回答履歴を含める
+    }));
 
+    res.json({ success: true, scores });
+});
 
 app.get("/friend.html", (req, res) => {
     res.sendFile(__dirname + "/docs/friend.html");
