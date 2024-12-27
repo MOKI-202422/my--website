@@ -36,87 +36,59 @@
 
         // 成績データを取得して表示する
         async function loadResults() {
-        const roomName = localStorage.getItem("currentRoom"); // ルーム名を取得
-        if (!roomName) {
-            alert("ルーム名が設定されていません。");
-            return;
-        }
-
-        // フレンド画面用にルーム名を保存
-        localStorage.setItem("lastViewedRoom", roomName);
-
-        try {
-            const response = await fetch(`/quiz-results?roomName=${roomName}`);
-            const result = await response.json();
-
-            if (result.success) {
-                displayResults(result.scores);
-            } else {
-                alert(result.message || "成績データの取得に失敗しました。");
-            }
-        } catch (error) {
-            console.error("成績データの取得中にエラーが発生しました:", error);
-        }
+    const roomName = localStorage.getItem("currentRoom");
+    if (!roomName) {
+        alert("ルーム名が設定されていません。");
+        return;
     }
 
-    function displayResults(scores) {
+    try {
+        const response = await fetch(`/quiz-results-history?roomName=${roomName}`);
+        const result = await response.json();
+
+        if (result.success) {
+            displayResults(result.history);
+        } else {
+            alert(result.message || "成績データの取得に失敗しました。");
+        }
+    } catch (error) {
+        console.error("成績データの取得中にエラーが発生しました:", error);
+    }
+}
+
+function displayResults(history) {
     const tbody = document.getElementById("resultsTable").querySelector("tbody");
     tbody.innerHTML = "";
 
-    scores.forEach(({ playerName, score, answers }) => {
-        const row = document.createElement("tr");
+    history.forEach((quiz, index) => {
+        const headerRow = document.createElement("tr");
+        headerRow.innerHTML = `<td colspan="3"><strong>クイズ ${index + 1}</strong></td>`;
+        tbody.appendChild(headerRow);
 
-        // プレイヤー名とスコア
-        row.innerHTML = `<td>${playerName}</td><td>${score}</td>`;
+        quiz.forEach(({ playerName, score, answers }) => {
+            const row = document.createElement("tr");
 
-        // 答えた問題のリスト
-        const answerCell = document.createElement("td");
-        const answerList = answers.map(({ question, choices, answer, correct, explanation }) => {
-            const choicesList = choices.map((choice, index) => {
-                return `<li>${index + 1}: ${choice}</li>`;
+            row.innerHTML = `<td>${playerName}</td><td>${score}</td>`;
+
+            const answerCell = document.createElement("td");
+            const answerList = answers.map(({ question, answer, correct }) => {
+                return `
+                    <p>${question} - あなたの回答: ${answer} (${correct ? "正解" : "不正解"})</p>
+                `;
             }).join("");
 
-            return `
-                <div class="answer-item">
-                    <span class="question-text">${question} - あなたの回答: ${answer} (${correct ? "正解" : "不正解"})</span>
-                    <div class="answer-details" style="display: none;">
-                        <p>選択肢:</p>
-                        <ul>${choicesList}</ul>
-                        <p>正解: ${correct ? answer : choices[question.answer - 1]}</p>
-                        <p>解説: ${explanation || "解説がありません。"}</p>
-                    </div>
-                </div>
-            `;
-        }).join("");
+            answerCell.innerHTML = answerList;
+            row.appendChild(answerCell);
 
-        answerCell.innerHTML = `<div>${answerList}</div>`;
-        row.appendChild(answerCell);
-
-        tbody.appendChild(row);
-    });
-
-    attachAnswerClickHandlers();
-}
-
-function attachAnswerClickHandlers() {
-    const questionElements = document.querySelectorAll(".question-text");
-
-    questionElements.forEach((questionElement) => {
-        questionElement.addEventListener("click", () => {
-            const details = questionElement.nextElementSibling; // 詳細部分
-            if (details.style.display === "none") {
-                details.style.display = "block";
-            } else {
-                details.style.display = "none";
-            }
+            tbody.appendChild(row);
         });
     });
 }
 
-    // ページロード時に成績を取得
-    loadResults();
+// ページロード時に履歴を取得
+loadResults();
+
       
     </script>
 </body>
 </html>
-

@@ -113,7 +113,7 @@ document.getElementById("joinRoomButton").addEventListener("click", async () => 
     }
 });
 
-    socket.on("update_scores", (scores) => {
+socket.on("update_scores", (scores) => {
     const scoreList = document.getElementById("scoreList");
     scoreList.innerHTML = ""; // スコアリストをクリア
 
@@ -179,14 +179,34 @@ socket.on("already_answered", ({ playerName }) => {
     }
 });
 
+// クイズ終了時に画面をリセットする関数
+function resetQuizScreen() {
+    // 問題・選択肢のリセット
+    document.getElementById("question").textContent = "問題がここに表示されます";
+    document.getElementById("choices").innerHTML = "";
+    document.getElementById("choices").style.display = "block"; // 選択肢を表示可能に戻す
+    document.getElementById("timeLeft").textContent = "30"; // タイマー初期化
+
+    // スコア・プレイヤーリストのリセット
+    document.getElementById("scoreList").innerHTML = "";
+    document.getElementById("players").innerHTML = "";
+
+    // メッセージのクリア
+    document.getElementById("messages").textContent = "";
+
+    // 準備ボタンを再度押せるように
+    document.getElementById("readyButton").disabled = false;
+}
+
+// クイズ終了時に画面リセットとスコアリセットが反映
 socket.on("end_quiz", (message) => {
     const messagesDiv = document.getElementById("messages");
     messagesDiv.textContent = message;
 
-    // クイズエリア・プレイヤーリスト・スコアはそのまま表示
-    document.getElementById("question").textContent = "クイズは終了しました！次回の問題をお待ちください。";
-    document.getElementById("choices").innerHTML = "";
-    document.getElementById("timeLeft").textContent = "0";
+    // 2秒後に画面をリセット
+    setTimeout(() => {
+        resetQuizScreen();
+    }, 2000);
 });
 
 socket.on("show_correct_answer", ({ correctAnswer }) => {
@@ -234,3 +254,5 @@ socket.on("show_correct_answer", ({ correctAnswer }) => {
     </script>
 </body>
 </html>
+
+

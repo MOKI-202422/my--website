@@ -15,6 +15,8 @@ const playerAnswers = {}; // 各ルームごとのプレイヤーの回答履歴
 const privateChats = {}; // プライベートチャット用
 const boardPosts = []; // 投稿データを保持
 const studyRecords = {}; // ユーザごとの勉強記録を管理
+const quizResultsHistory = {}; // 各ルームごとの成績履歴
+
 
 io.on("connection", (socket) => {
     console.log("A user connected");
@@ -116,10 +118,37 @@ function startQuiz(roomName) {
 
 const intervalIds = {}; // 各ルームのタイマーを管理
 
+// クイズ終了時にスコアをリセットする関数
+function resetScores(roomName) {
+    if (playerScores[roomName]) {
+        Object.keys(playerScores[roomName]).forEach((playerName) => {
+            playerScores[roomName][playerName] = 0; // スコアを0にリセット
+        });
+    }
+}
+
+// クイズ終了時の処理
+function endQuiz(roomName) {
+    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
+        playerName,
+        score,
+        answers: playerAnswers[roomName]?.[playerName] || [], // 回答履歴を保存
+    }));
+
+    // 履歴に追加
+    if (!quizResultsHistory[roomName]) {
+        quizResultsHistory[roomName] = [];
+    }
+    quizResultsHistory[roomName].push(scores);
+
+    io.to(roomName).emit("end_quiz", "クイズが終了しました！");
+    resetScores(roomName); // スコアをリセット
+}
+
 function startQuestionTimer(roomName, questions) {
     const questionIndex = playerReadyStatus[roomName].currentQuestion || 0;
     if (questionIndex >= questions.length) {
-        io.to(roomName).emit("end_quiz", "クイズが終了しました！");
+        endQuiz(roomName); // クイズ終了時にスコアをリセット
         return;
     }
 
@@ -128,19 +157,16 @@ function startQuestionTimer(roomName, questions) {
 
     let timeLeft = 30;
 
-    // タイマーのリセット（存在する場合のみ）
     if (intervalIds[roomName]) {
         clearInterval(intervalIds[roomName]);
     }
 
-    // 新しいタイマーを設定
     intervalIds[roomName] = setInterval(() => {
         timeLeft--;
         io.to(roomName).emit("timer_update", timeLeft);
 
         if (timeLeft <= 0) {
             clearInterval(intervalIds[roomName]);
-            // 時間切れになった場合、正解を表示
             const correctAnswer = question.choices[question.answer - 1];
             io.to(roomName).emit("show_correct_answer", { correctAnswer });
 
@@ -148,6 +174,7 @@ function startQuestionTimer(roomName, questions) {
         }
     }, 1000);
 }
+
 
 function nextQuestion(roomName, questions) {
     playerReadyStatus[roomName].currentQuestion++;
@@ -399,20 +426,15 @@ app.get("/results.html", (req, res) => {
 });
 
 // 成績データを返すエンドポイント
-app.get("/quiz-results", (req, res) => {
-    const roomName = req.query.roomName; // クエリパラメータからルーム名を取得
-    if (!roomName || !playerScores[roomName]) {
-        return res.json({ success: false, message: "成績データがありません。" });
+app.get("/quiz-results-history", (req, res) => {
+    const roomName = req.query.roomName;
+    if (!roomName || !quizResultsHistory[roomName]) {
+        return res.json({ success: false, message: "成績履歴がありません。" });
     }
 
-    const scores = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
-        playerName,
-        score,
-        answers: playerAnswers[roomName]?.[playerName] || [], // プレイヤーの回答履歴を含める
-    }));
-
-    res.json({ success: true, scores });
+    res.json({ success: true, history: quizResultsHistory[roomName] });
 });
+
 
 app.get("/friend.html", (req, res) => {
     res.sendFile(__dirname + "/docs/friend.html");
