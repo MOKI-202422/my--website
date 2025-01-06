@@ -172,11 +172,30 @@
         modal.style.padding = "20px";
         modal.style.border = "1px solid #ccc";
         modal.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
+        modal.style.maxHeight = "80vh";
+        modal.style.overflowY = "auto";
         modal.innerHTML = `
             <h2>${username}の勉強データ</h2>
-            <canvas id="studyChartModal" width="400" height="200"></canvas>
-            <button id="closeModal">閉じる</button>
-        `;
+           <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #ddd; padding: 8px;">日付</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">時間 (時間単位)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">内容</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${records.map(record => `
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${record.date}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${record.time}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${record.content}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        <button id="closeDetailModal" style="margin-top: 20px;">閉じる</button>
+    `;
 
         document.body.appendChild(modal);
 
