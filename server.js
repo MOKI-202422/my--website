@@ -5,7 +5,12 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: "*", // 必要に応じて許可するオリジンを指定
+        methods: ["GET", "POST"],
+    },
+});
 
 const users = {};
 const categories = {};
