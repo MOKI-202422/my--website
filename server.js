@@ -5,12 +5,7 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: "*", // 必要に応じて許可するオリジンを指定
-        methods: ["GET", "POST"],
-    },
-});
+const io = new Server(server);
 
 const users = {};
 const categories = {};
@@ -81,8 +76,8 @@ io.on("connection", (socket) => {
         privateChats[roomKey].push({ sender, message });
 
         // 同じチャットルームにいるユーザーに送信
-        socket.to(roomKey).emit("receive_message", { roomKey, sender, message });
-});
+        io.to(roomKey).emit("receive_message", { roomKey, sender, message });
+    });
 
     // 履歴取得
     socket.on("get_chat_history", ({ roomKey }, callback) => {
@@ -553,5 +548,4 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
 
