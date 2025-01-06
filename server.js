@@ -76,8 +76,8 @@ io.on("connection", (socket) => {
         privateChats[roomKey].push({ sender, message });
 
         // 同じチャットルームにいるユーザーに送信
-        io.emit("receive_message", { roomKey, sender, message });
-    });
+        socket.to(roomKey).emit("receive_message", { roomKey, sender, message });
+});
 
     // 履歴取得
     socket.on("get_chat_history", ({ roomKey }, callback) => {
