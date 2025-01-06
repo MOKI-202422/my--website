@@ -46,7 +46,7 @@ io.on("connection", (socket) => {
             io.to(roomName).emit("all_ready");
             startQuiz(roomName);
         } else {
-            io.to(roomName).emit("update_ready_status", playerReadyStatus[roomName]);
+            io.emit("update_ready_status", playerReadyStatus[roomName]);
         }
     });
     
