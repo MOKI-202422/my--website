@@ -46,7 +46,7 @@ io.on("connection", (socket) => {
             io.to(roomName).emit("all_ready");
             startQuiz(roomName);
         } else {
-            io.emit("update_ready_status", playerReadyStatus[roomName]);
+            io.to(roomName).emit("update_ready_status", playerReadyStatus[roomName]);
         }
     });
     
@@ -68,34 +68,27 @@ io.on("connection", (socket) => {
     // メッセージ送信
     socket.on("send_message", ({ roomKey, message }) => {
         const sender = socket.playerName;
-    
+
         if (!roomKey || !sender || !message) return;
-    
-        // 部屋名をアルファベット順にソートして一貫性を保証
-        const sortedRoomKey = roomKey.split("&").sort().join("&");
-    
+
         // 履歴を保存
-        if (!privateChats[sortedRoomKey]) privateChats[sortedRoomKey] = [];
-        privateChats[sortedRoomKey].push({ sender, message });
-    
+        if (!privateChats[roomKey]) privateChats[roomKey] = [];
+        privateChats[roomKey].push({ sender, message });
+
         // 同じチャットルームにいるユーザーに送信
-        io.emit("receive_message", { roomKey: sortedRoomKey, sender, message });
+        io.emit("receive_message", { roomKey, sender, message });
     });
-    
 
     // 履歴取得
     socket.on("get_chat_history", ({ roomKey }, callback) => {
-        const sortedRoomKey = roomKey.split("&").sort().join("&");
-    
-        if (!sortedRoomKey) {
+        if (!roomKey) {
             callback({ success: false, message: "Invalid room key" });
             return;
         }
-    
-        const messages = privateChats[sortedRoomKey] || [];
+
+        const messages = privateChats[roomKey] || [];
         callback({ success: true, messages });
     });
-    
 
     socket.on("disconnect", () => {
         console.log(`${socket.playerName} disconnected`);
@@ -555,4 +548,3 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
