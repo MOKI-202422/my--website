@@ -154,14 +154,14 @@
         .then((response) => response.json())
         .then((data) => {
             if (data.success) {
-                displayStudyChartAndDetails(data.studyRecords, username);
+                displayStudyChartWithColors(data.studyRecords, username);
             } else {
                 alert(data.message || "データの取得に失敗しました。");
             }
         });
 }
 
-function displayStudyChartAndDetails(records, username) {
+function displayStudyChartWithColors(records, username) {
     // モーダルを作成
     const modal = document.createElement("div");
     modal.style.position = "fixed";
@@ -178,40 +178,45 @@ function displayStudyChartAndDetails(records, username) {
     modal.innerHTML = `
         <h2>${username}の勉強データ</h2>
         <canvas id="studyChartModal" width="400" height="200"></canvas>
-        <div id="studyDetails" style="margin-top: 20px;">
-            <h3>勉強内容</h3>
-            <ul id="studyDetailsList"></ul>
-        </div>
         <button id="closeModal" style="margin-top: 20px;">閉じる</button>
     `;
 
     document.body.appendChild(modal);
 
-    // 閉じるボタンの処理
     document.getElementById("closeModal").addEventListener("click", () => {
         modal.remove();
     });
 
     // グラフデータを作成
     const ctx = document.getElementById("studyChartModal").getContext("2d");
-    const groupedByDate = groupDataByDate(records);
+    const groupedData = groupDataByDateAndContent(records);
 
-    // グラフ描画
+    const labels = Object.keys(groupedData); // 日付リスト
+    const datasets = createDatasetsForContent(groupedData);
+
     new Chart(ctx, {
         type: "bar",
         data: {
-            labels: Object.keys(groupedByDate),
-            datasets: [{
-                label: "勉強時間 (時間)",
-                data: Object.values(groupedByDate),
-                backgroundColor: "rgba(75, 192, 192, 0.2)",
-                borderColor: "rgba(75, 192, 192, 1)",
-                borderWidth: 1
-            }]
+            labels: labels,
+            datasets: datasets,
         },
         options: {
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            return `${context.dataset.label}: ${context.raw} 時間`;
+                        }
+                    }
+                }
+            },
+            responsive: true,
             scales: {
+                x: {
+                    stacked: true,
+                },
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     title: {
                         display: true,
@@ -221,22 +226,54 @@ function displayStudyChartAndDetails(records, username) {
             }
         }
     });
+}
 
-    // 勉強内容をリストとして表示
-    const studyDetailsList = document.getElementById("studyDetailsList");
-    records.forEach(record => {
-        const listItem = document.createElement("li");
-        listItem.textContent = `${record.date}: ${record.time}時間 - ${record.content}`;
-        studyDetailsList.appendChild(listItem);
+function groupDataByDateAndContent(records) {
+    const grouped = {};
+
+    records.forEach(({ date, time, content }) => {
+        if (!grouped[date]) grouped[date] = {};
+        if (!grouped[date][content]) grouped[date][content] = 0;
+
+        grouped[date][content] += time;
     });
+
+    return grouped;
 }
 
-function groupDataByDate(records) {
-    return records.reduce((acc, { date, time }) => {
-        acc[date] = (acc[date] || 0) + time;
-        return acc;
-    }, {});
+function createDatasetsForContent(groupedData) {
+    const allContents = new Set();
+
+    // 全ての勉強内容を収集
+    Object.values(groupedData).forEach((contentData) => {
+        Object.keys(contentData).forEach((content) => {
+            allContents.add(content);
+        });
+    });
+
+    // 勉強内容ごとにデータセットを作成
+    const datasets = Array.from(allContents).map((content) => {
+        const data = Object.keys(groupedData).map((date) => groupedData[date][content] || 0);
+
+        return {
+            label: content, // 勉強内容
+            data: data,
+            backgroundColor: getRandomColor(),
+        };
+    });
+
+    return datasets;
 }
+
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
 
         // ホーム画面に戻る処理
         document.getElementById("backToHome").addEventListener("click", () => {
