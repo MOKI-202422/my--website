@@ -162,7 +162,7 @@
     }
 
     function displayStudyChart(records, username) {
-        // グラフモーダルを作成
+        // モーダルを作成
         const modal = document.createElement("div");
         modal.style.position = "fixed";
         modal.style.top = "50%";
@@ -176,70 +176,52 @@
         modal.style.overflowY = "auto";
         modal.innerHTML = `
             <h2>${username}の勉強データ</h2>
-           <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr>
-                    <th style="border: 1px solid #ddd; padding: 8px;">日付</th>
-                    <th style="border: 1px solid #ddd; padding: 8px;">時間 (時間単位)</th>
-                    <th style="border: 1px solid #ddd; padding: 8px;">内容</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${records.map(record => `
-                    <tr>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${record.date}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${record.time}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">${record.content}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        <button id="closeDetailModal" style="margin-top: 20px;">閉じる</button>
+            <canvas id="studyChartModal" width="400" height="200"></canvas>
+        <button id="closeModal" style="margin-top: 20px;">閉じる</button>
     `;
 
-        document.body.appendChild(modal);
+    document.body.appendChild(modal);
 
-        document.getElementById("closeModal").addEventListener("click", () => {
-            modal.remove();
-        });
+    document.getElementById("closeModal").addEventListener("click", () => {
+        modal.remove();
+    });
 
-        // グラフデータを作成
-        const ctx = document.getElementById("studyChartModal").getContext("2d");
-        const groupedByDate = groupDataByDate(records);
+    // グラフデータを作成
+    const ctx = document.getElementById("studyChartModal").getContext("2d");
+    const groupedByDate = groupDataByDate(records);
 
-        new Chart(ctx, {
-            type: "bar",
-            data: {
-                labels: Object.keys(groupedByDate),
-                datasets: [{
-                    label: "勉強時間 (時間)",
-                    data: Object.values(groupedByDate),
-                    backgroundColor: "rgba(75, 192, 192, 0.2)",
-                    borderColor: "rgba(75, 192, 192, 1)",
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: "勉強時間 (時間)"
-                        }
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: Object.keys(groupedByDate),
+            datasets: [{
+                label: "勉強時間 (時間)",
+                data: Object.values(groupedByDate),
+                backgroundColor: "rgba(75, 192, 192, 0.2)",
+                borderColor: "rgba(75, 192, 192, 1)",
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: "勉強時間 (時間)"
                     }
                 }
             }
-        });
-    }
+        }
+    });
+}
 
-    function groupDataByDate(records) {
-        return records.reduce((acc, { date, time }) => {
-            acc[date] = (acc[date] || 0) + time;
-            return acc;
-        }, {});
-    }
-
+function groupDataByDate(records) {
+    return records.reduce((acc, { date, time }) => {
+        acc[date] = (acc[date] || 0) + time;
+        return acc;
+    }, {});
+}
         // ホーム画面に戻る処理
         document.getElementById("backToHome").addEventListener("click", () => {
             window.location.href = "/home";
