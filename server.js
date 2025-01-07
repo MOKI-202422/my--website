@@ -68,27 +68,34 @@ io.on("connection", (socket) => {
     // メッセージ送信
     socket.on("send_message", ({ roomKey, message }) => {
         const sender = socket.playerName;
-
+    
         if (!roomKey || !sender || !message) return;
-
+    
+        // 部屋名をアルファベット順にソートして一貫性を保証
+        const sortedRoomKey = roomKey.split("&").sort().join("&");
+    
         // 履歴を保存
-        if (!privateChats[roomKey]) privateChats[roomKey] = [];
-        privateChats[roomKey].push({ sender, message });
-
+        if (!privateChats[sortedRoomKey]) privateChats[sortedRoomKey] = [];
+        privateChats[sortedRoomKey].push({ sender, message });
+    
         // 同じチャットルームにいるユーザーに送信
-        io.to(roomKey).emit("receive_message", { roomKey, sender, message });
+        io.emit("receive_message", { roomKey: sortedRoomKey, sender, message });
     });
+    
 
     // 履歴取得
     socket.on("get_chat_history", ({ roomKey }, callback) => {
-        if (!roomKey) {
+        const sortedRoomKey = roomKey.split("&").sort().join("&");
+    
+        if (!sortedRoomKey) {
             callback({ success: false, message: "Invalid room key" });
             return;
         }
-
-        const messages = privateChats[roomKey] || [];
+    
+        const messages = privateChats[sortedRoomKey] || [];
         callback({ success: true, messages });
     });
+    
 
     socket.on("disconnect", () => {
         console.log(`${socket.playerName} disconnected`);
