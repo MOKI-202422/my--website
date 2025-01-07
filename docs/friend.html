@@ -150,38 +150,44 @@
     }
 
     function viewStudyData(username) {
-        fetch(`/get-user-study-data/${username}`)
-            .then((response) => response.json())
-            .then((data) => {
-                if (data.success) {
-                    displayStudyChart(data.studyRecords, username);
-                } else {
-                    alert(data.message || "データの取得に失敗しました。");
-                }
-            });
-    }
+    fetch(`/get-user-study-data/${username}`)
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.success) {
+                displayStudyChartAndDetails(data.studyRecords, username);
+            } else {
+                alert(data.message || "データの取得に失敗しました。");
+            }
+        });
+}
 
-    function displayStudyChart(records, username) {
-        // モーダルを作成
-        const modal = document.createElement("div");
-        modal.style.position = "fixed";
-        modal.style.top = "50%";
-        modal.style.left = "50%";
-        modal.style.transform = "translate(-50%, -50%)";
-        modal.style.backgroundColor = "#fff";
-        modal.style.padding = "20px";
-        modal.style.border = "1px solid #ccc";
-        modal.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
-        modal.style.maxHeight = "80vh";
-        modal.style.overflowY = "auto";
-        modal.innerHTML = `
-            <h2>${username}の勉強データ</h2>
-            <canvas id="studyChartModal" width="400" height="200"></canvas>
+function displayStudyChartAndDetails(records, username) {
+    // モーダルを作成
+    const modal = document.createElement("div");
+    modal.style.position = "fixed";
+    modal.style.top = "50%";
+    modal.style.left = "50%";
+    modal.style.transform = "translate(-50%, -50%)";
+    modal.style.backgroundColor = "#fff";
+    modal.style.padding = "20px";
+    modal.style.border = "1px solid #ccc";
+    modal.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
+    modal.style.maxHeight = "80vh";
+    modal.style.overflowY = "auto";
+
+    modal.innerHTML = `
+        <h2>${username}の勉強データ</h2>
+        <canvas id="studyChartModal" width="400" height="200"></canvas>
+        <div id="studyDetails" style="margin-top: 20px;">
+            <h3>勉強内容</h3>
+            <ul id="studyDetailsList"></ul>
+        </div>
         <button id="closeModal" style="margin-top: 20px;">閉じる</button>
     `;
 
     document.body.appendChild(modal);
 
+    // 閉じるボタンの処理
     document.getElementById("closeModal").addEventListener("click", () => {
         modal.remove();
     });
@@ -190,6 +196,7 @@
     const ctx = document.getElementById("studyChartModal").getContext("2d");
     const groupedByDate = groupDataByDate(records);
 
+    // グラフ描画
     new Chart(ctx, {
         type: "bar",
         data: {
@@ -214,6 +221,14 @@
             }
         }
     });
+
+    // 勉強内容をリストとして表示
+    const studyDetailsList = document.getElementById("studyDetailsList");
+    records.forEach(record => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${record.date}: ${record.time}時間 - ${record.content}`;
+        studyDetailsList.appendChild(listItem);
+    });
 }
 
 function groupDataByDate(records) {
@@ -222,6 +237,7 @@ function groupDataByDate(records) {
         return acc;
     }, {});
 }
+
         // ホーム画面に戻る処理
         document.getElementById("backToHome").addEventListener("click", () => {
             window.location.href = "/home";
