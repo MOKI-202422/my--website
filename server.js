@@ -66,35 +66,29 @@ io.on("connection", (socket) => {
     });
 
     // メッセージ送信
-socket.on("send_message", ({ roomKey, message }) => {
-    const sender = socket.playerName;
+    socket.on("send_message", ({ roomKey, message }) => {
+        const sender = socket.playerName;
 
-    if (!roomKey || !sender || !message) return;
+        if (!roomKey || !sender || !message) return;
 
-    // チャット履歴を保存
-    if (!privateChats[roomKey]) privateChats[roomKey] = [];
-    privateChats[roomKey].push({ sender, message });
+        // 履歴を保存
+        if (!privateChats[roomKey]) privateChats[roomKey] = [];
+        privateChats[roomKey].push({ sender, message });
 
-    // 指定されたチャットルームにメッセージを送信
-    io.to(roomKey).emit("receive_message", { roomKey, sender, message });
-});
+        // 同じチャットルームにいるユーザーに送信
+        io.emit("receive_message", { roomKey, sender, message });
+    });
 
-// 指定されたプライベートチャットルームの履歴を取得
-socket.on("get_chat_history", ({ roomKey }, callback) => {
-    if (!roomKey) {
-        callback({ success: false, message: "ルームキーが無効です。" });
-        return;
-    }
+    // 履歴取得
+    socket.on("get_chat_history", ({ roomKey }, callback) => {
+        if (!roomKey) {
+            callback({ success: false, message: "Invalid room key" });
+            return;
+        }
 
-    const messages = privateChats[roomKey] || [];
-    callback({ success: true, messages });
-});
-
-// プライベートチャットルームに参加
-socket.on("join_private_chat", ({ roomKey }) => {
-    socket.join(roomKey);
-    console.log(`${socket.playerName}がプライベートチャットルーム「${roomKey}」に参加しました。`);
-});
+        const messages = privateChats[roomKey] || [];
+        callback({ success: true, messages });
+    });
 
     socket.on("disconnect", () => {
         console.log(`${socket.playerName} disconnected`);
@@ -554,6 +548,5 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
 
 
