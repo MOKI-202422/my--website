@@ -65,16 +65,26 @@
             }
         }
 
-        function displayFriends(scores) {
-            friendList.innerHTML = "";
-            scores.forEach(({ playerName }) => {
-                const listItem = document.createElement("li");
-                listItem.textContent = playerName;
-                listItem.style.cursor = "pointer";
-                friendList.appendChild(listItem);
-            });
-        }
+        // フレンドリストを表示
+function displayFriends(scores) {
+    friendList.innerHTML = "";
+    scores.forEach(({ playerName }) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = playerName;
+        listItem.style.cursor = "pointer";
 
+        // 「勉強時間」ボタンを追加
+        const studyButton = document.createElement("button");
+        studyButton.textContent = "勉強時間";
+        studyButton.addEventListener("click", (e) => {
+            e.stopPropagation(); // ボタンのクリックイベントがフレンドのクリックに伝播しないようにする
+            viewStudyData(playerName); // 勉強時間のデータを表示
+        });
+
+        listItem.appendChild(studyButton); // ボタンをリストアイテムに追加
+        friendList.appendChild(listItem);
+    });
+}
         // チャットルーム名の生成を一貫化 (アルファベット順)
 function generateChatRoomName(user1, user2) {
     return [user1, user2].sort().join("&");
