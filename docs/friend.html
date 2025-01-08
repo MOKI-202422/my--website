@@ -82,6 +82,8 @@
 
                 // ユニークなチャットルーム名を生成（アルファベット順）
                 currentChatRoom = [username, selectedUser].sort().join("&");
+                // サーバーにチャットルーム参加を通知
+                socket.emit("join_private_chat", currentChatRoom);
                 chatWith.textContent = `チャット: ${currentChatRoom}`;
                 chatMessages.innerHTML = "";
 
@@ -111,7 +113,6 @@
         // メッセージ送信
         sendMessageButton.addEventListener("click", () => {
             const message = chatInput.value.trim();
-            console.log(`Sending message to room ${currentChatRoom}:`, message); // 追加されたログ出力
             if (message && currentChatRoom) {
                 socket.emit("send_message", { roomKey: currentChatRoom, message });
                 displayMessage("自分", message);

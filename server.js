@@ -5,12 +5,7 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: "*", // 必要に応じて特定のドメインに限定
-        methods: ["GET", "POST"]
-    }
-});
+const io = new Server(server);
 
 const users = {};
 const categories = {};
@@ -82,7 +77,6 @@ io.on("connection", (socket) => {
 
         // 同じチャットルームにいるユーザーに送信
         io.to(roomKey).emit("receive_message", { roomKey, sender, message });
-        console.log(`Message received in room ${roomKey}:`, message);
     });
 
     // 履歴取得
@@ -95,6 +89,14 @@ io.on("connection", (socket) => {
         const messages = privateChats[roomKey] || [];
         callback({ success: true, messages });
     });
+
+    socket.on("join_private_chat", (roomKey) => {
+        if (roomKey) {
+            socket.join(roomKey); // 指定された部屋に参加
+            console.log(`${socket.playerName} joined private chat: ${roomKey}`);
+        }
+    });
+    
 
     socket.on("disconnect", () => {
         console.log(`${socket.playerName} disconnected`);
