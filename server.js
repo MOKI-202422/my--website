@@ -83,7 +83,7 @@ io.on("connection", (socket) => {
         privateChats[roomKey].push({ sender, message });
 
         // 同じチャットルームにいるユーザーに送信
-        io.to(roomKey).emit("receive_message", { roomKey, sender, message });
+        io.emit("receive_message", { roomKey, sender, message });
         console.log(`Message from ${sender} to ${roomKey}: ${message}`);
     });
 
