@@ -38,6 +38,11 @@
 
         const socket = io();
 
+        // ソケット接続状態の確認用
+socket.on("connect", () => console.log("Socket connected"));
+socket.on("disconnect", () => console.log("Socket disconnected"));
+
+
         // ユーザー名をサーバーに登録
         if (username) {
             socket.emit("set_username", username);
@@ -64,13 +69,6 @@
                 console.error("フレンドデータの取得中にエラーが発生しました:", error);
             }
         }
-
-        // 部屋に参加
-    function joinChatRoom(roomKey) {
-        currentChatRoom = roomKey;
-        socket.emit("join_chat", currentChatRoom);
-        console.log(`Joined chat room: ${currentChatRoom}`);
-    }
 
         function displayFriends(scores) {
             friendList.innerHTML = "";
@@ -291,5 +289,4 @@ function getRandomColor() {
     </script>
 </body>
 </html>
-
 

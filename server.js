@@ -65,13 +65,6 @@ io.on("connection", (socket) => {
         console.log(`${playerName} has connected`);
     });
 
-    socket.on("join_chat", (roomKey) => {
-        if (!roomKey) return;
-        socket.join(roomKey);
-        console.log(`${socket.playerName} joined chat room: ${roomKey}`);
-    });
-
-
     // メッセージ送信
     socket.on("send_message", ({ roomKey, message }) => {
         const sender = socket.playerName;
@@ -84,7 +77,6 @@ io.on("connection", (socket) => {
 
         // 同じチャットルームにいるユーザーに送信
         io.emit("receive_message", { roomKey, sender, message });
-        console.log(`Message from ${sender} to ${roomKey}: ${message}`);
     });
 
     // 履歴取得
@@ -556,5 +548,4 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
 
