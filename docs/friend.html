@@ -65,6 +65,13 @@
             }
         }
 
+        // 部屋に参加
+    function joinChatRoom(roomKey) {
+        currentChatRoom = roomKey;
+        socket.emit("join_chat", currentChatRoom);
+        console.log(`Joined chat room: ${currentChatRoom}`);
+    }
+
         function displayFriends(scores) {
             friendList.innerHTML = "";
             scores.forEach(({ playerName }) => {
@@ -82,8 +89,6 @@
 
                 // ユニークなチャットルーム名を生成（アルファベット順）
                 currentChatRoom = [username, selectedUser].sort().join("&");
-                // サーバーにチャットルーム参加を通知
-                socket.emit("join_private_chat", currentChatRoom);
                 chatWith.textContent = `チャット: ${currentChatRoom}`;
                 chatMessages.innerHTML = "";
 
@@ -286,3 +291,5 @@ function getRandomColor() {
     </script>
 </body>
 </html>
+
+

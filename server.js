@@ -65,6 +65,13 @@ io.on("connection", (socket) => {
         console.log(`${playerName} has connected`);
     });
 
+    socket.on("join_chat", (roomKey) => {
+        if (!roomKey) return;
+        socket.join(roomKey);
+        console.log(`${socket.playerName} joined chat room: ${roomKey}`);
+    });
+
+
     // メッセージ送信
     socket.on("send_message", ({ roomKey, message }) => {
         const sender = socket.playerName;
@@ -77,6 +84,7 @@ io.on("connection", (socket) => {
 
         // 同じチャットルームにいるユーザーに送信
         io.to(roomKey).emit("receive_message", { roomKey, sender, message });
+        console.log(`Message from ${sender} to ${roomKey}: ${message}`);
     });
 
     // 履歴取得
@@ -89,14 +97,6 @@ io.on("connection", (socket) => {
         const messages = privateChats[roomKey] || [];
         callback({ success: true, messages });
     });
-
-    socket.on("join_private_chat", (roomKey) => {
-        if (roomKey) {
-            socket.join(roomKey); // 指定された部屋に参加
-            console.log(`${socket.playerName} joined private chat: ${roomKey}`);
-        }
-    });
-    
 
     socket.on("disconnect", () => {
         console.log(`${socket.playerName} disconnected`);
