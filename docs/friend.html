@@ -115,7 +115,10 @@
                 socket.emit("send_message", { roomKey: currentChatRoom, message });
                 displayMessage("自分", message);
                 chatInput.value = "";
-            }
+            } else {
+        alert("メッセージまたはルームが設定されていません！");
+    }
+    console.log(`Sending message to room ${currentChatRoom}:`, chatInput.value.trim());
         });
 
         // チャットを閉じる
