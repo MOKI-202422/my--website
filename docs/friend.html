@@ -38,11 +38,6 @@
 
         const socket = io();
 
-        // ソケット接続状態の確認用
-socket.on("connect", () => console.log("Socket connected"));
-socket.on("disconnect", () => console.log("Socket disconnected"));
-
-
         // ユーザー名をサーバーに登録
         if (username) {
             socket.emit("set_username", username);
@@ -82,36 +77,41 @@ socket.on("disconnect", () => console.log("Socket disconnected"));
 
         // フレンドをクリックした時の処理
         friendList.addEventListener("click", (event) => {
-            if (event.target.tagName === "LI") {
-                const selectedUser = event.target.textContent;
+    if (event.target.tagName === "LI") {
+        const selectedUser = event.target.textContent;
 
-                // ユニークなチャットルーム名を生成（アルファベット順）
-                currentChatRoom = [username, selectedUser].sort().join("&");
-                chatWith.textContent = `チャット: ${currentChatRoom}`;
-                chatMessages.innerHTML = "";
+        // 2人のユーザー名からユニークなチャットルーム名を生成
+        currentChatRoom = [username, selectedUser].sort().join("&");
+        chatWith.textContent = `チャット: ${currentChatRoom}`;
+        chatMessages.innerHTML = "";
 
-                // ソケットイベントをリセットしてから履歴を取得
-                socket.off("receive_message");
-                socket.on("receive_message", ({ roomKey, sender, message }) => {
-                    if (currentChatRoom === roomKey) {
-                        displayMessage(sender, message);
-                    }
-                });
+        // プライベートチャットルームに参加
+        socket.emit("join_private_chat", { roomKey: currentChatRoom });
 
-                // サーバーからチャット履歴を取得
-                socket.emit("get_chat_history", { roomKey: currentChatRoom }, (response) => {
-                    if (response.success) {
-                        response.messages.forEach(({ sender, message }) => {
-                            displayMessage(sender, message);
-                        });
-                    } else {
-                        console.error("Failed to load chat history:", response.message);
-                    }
-                });
-
-                chatModal.style.display = "block";
+        // そのチャットルームに送られたメッセージのみを受信
+        socket.off("receive_message");
+        socket.on("receive_message", ({ roomKey, sender, message }) => {
+            if (currentChatRoom === roomKey) {
+                displayMessage(sender, message);
             }
         });
+
+        // サーバーからチャット履歴を取得
+        socket.emit("get_chat_history", { roomKey: currentChatRoom }, (response) => {
+            if (response.success) {
+                response.messages.forEach(({ sender, message }) => {
+                    displayMessage(sender, message);
+                });
+            } else {
+                console.error("チャット履歴の取得に失敗:", response.message);
+            }
+        });
+
+        // チャットモーダルを表示
+        chatModal.style.display = "block";
+    }
+});
+
 
         // メッセージ送信
         sendMessageButton.addEventListener("click", () => {
@@ -289,4 +289,3 @@ function getRandomColor() {
     </script>
 </body>
 </html>
-
