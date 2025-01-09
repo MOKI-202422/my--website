@@ -78,12 +78,12 @@
         // フレンドをクリックした時の処理
         friendList.addEventListener("click", (event) => {
             if (event.target.tagName === "LI") {
-                const selectedUser = event.target.textContent;
+                const selectedUser = event.target.textContent.replace("勉強時間", ""); // 勉強時間を削除
                 const sanitizedUsername = username.replace("勉強時間", ""); // 自分の名前からも削除
 
                 // ユニークなチャットルーム名を生成（アルファベット順）
                 currentChatRoom = [username, selectedUser].sort().join("&");
-                chatWith.textContent = `チャット: ${currentChatRoom}`;
+                chatWith.textContent = `チャット: ${currentChatRoom.replace("勉強時間", "")}`;
                 chatMessages.innerHTML = "";
 
                 // ソケットイベントをリセットしてから履歴を取得

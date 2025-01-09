@@ -66,19 +66,18 @@ io.on("connection", (socket) => {
     });
 
     // メッセージ送信
-socket.on("send_message", ({ roomKey, message }) => {
-    const sender = socket.playerName;
+    socket.on("send_message", ({ roomKey, message }) => {
+        const sender = socket.playerName;
 
-    if (!roomKey || !sender || !message) return;
+        if (!roomKey || !sender || !message) return;
 
-    // 履歴を保存
-    if (!privateChats[roomKey]) privateChats[roomKey] = [];
-    privateChats[roomKey].push({ sender, message });
+        // 履歴を保存
+        if (!privateChats[roomKey]) privateChats[roomKey] = [];
+        privateChats[roomKey].push({ sender, message });
 
-    // 同じチャットルームにいるユーザーに送信
-    io.to(roomKey).emit("receive_message", { roomKey, sender, message });
-});
-
+        // 同じチャットルームにいるユーザーに送信
+        io.emit("receive_message", { roomKey, sender, message });
+    });
 
     // 履歴取得
     socket.on("get_chat_history", ({ roomKey }, callback) => {
@@ -549,5 +548,3 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
-
-
