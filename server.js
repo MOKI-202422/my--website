@@ -109,6 +109,9 @@ function startQuiz(roomName) {
         return;
     }
 
+    // スコアをリセット
+    resetScores(roomName);
+    
     playerReadyStatus[roomName].currentQuestion = 0;
     answeredPlayers[roomName] = {}; // 回答済みプレイヤーを初期化
     startQuestionTimer(roomName, questions);
@@ -126,8 +129,25 @@ function resetScores(roomName) {
 }
 
 // クイズ終了時の処理
+const fs = require("fs"); // ファイル保存用モジュールを追加
+
+function saveResults(roomName) {
+    if (!playerScores[roomName]) return;
+
+    const results = Object.entries(playerScores[roomName]).map(([playerName, score]) => ({
+        playerName,
+        score,
+        answers: playerAnswers[roomName]?.[playerName] || [],
+    }));
+
+    // JSONファイルに保存
+    fs.writeFileSync(`results_${roomName}.json`, JSON.stringify(results, null, 2), "utf-8");
+    console.log(`Results for ${roomName} saved.`);
+}
+
 function endQuiz(roomName) {
     io.to(roomName).emit("end_quiz", "クイズが終了しました！");
+    saveResults(roomName); // 成績を保存する処理を追加
     resetScores(roomName); // スコアをリセット
 }
 
@@ -548,3 +568,4 @@ app.get("/get-user-study-data/:username", (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
+

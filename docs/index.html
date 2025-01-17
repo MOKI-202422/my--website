@@ -203,9 +203,9 @@ socket.on("end_quiz", (message) => {
     const messagesDiv = document.getElementById("messages");
     messagesDiv.textContent = message;
 
-    // 2秒後に画面をリセット
+    // クイズ終了後に成績ページへ遷移
     setTimeout(() => {
-        resetQuizScreen();
+        window.location.href = "/results.html";
     }, 2000);
 });
 
@@ -254,5 +254,4 @@ socket.on("show_correct_answer", ({ correctAnswer }) => {
     </script>
 </body>
 </html>
-
 
