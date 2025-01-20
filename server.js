@@ -268,18 +268,16 @@ function handleAnswer(roomName, playerName, answer) {
 
 const PORT = process.env.PORT || 3320;
 
-app.use(
-    session({
-        secret: "your_secret_key",
-        resave: false,
-        saveUninitialized: true,
-        cookie: {
-            secure: false, // HTTPSで運用する場合はtrueに変更
-            httpOnly: true, // JavaScriptからアクセス不可
-            sameSite: "lax", // セッション固定化攻撃を防ぐ
-        },
-    })
-);
+const SQLiteStore = require('connect-sqlite3')(session);
+
+app.use(session({
+    store: new SQLiteStore({ db: 'sessions.sqlite', dir: './db' }),
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { maxAge: 86400000 } // 1日
+}));
+
 
 app.use(express.json());
 
