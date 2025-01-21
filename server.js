@@ -1,11 +1,31 @@
 const express = require("express");
 const session = require("express-session");
+const SQLiteStore = require("connect-sqlite3")(session);
 const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// セッションの永続化設定
+app.use(
+    session({
+        store: new SQLiteStore({
+            db: "sessions.sqlite", // セッションデータ保存用のSQLiteファイル
+            dir: "./data",         // ディスク永続化ディレクトリ（Renderで永続化設定が必要）
+        }),
+        secret: "your_secret_key", // 必ず安全なキーに変更（環境変数で管理することを推奨）
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+            secure: false, // HTTPS使用時はtrue
+            httpOnly: true,
+            sameSite: "lax",
+        },
+    })
+);
+
 
 const users = {};
 const categories = {};
