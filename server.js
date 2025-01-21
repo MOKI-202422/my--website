@@ -3,7 +3,7 @@ const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const http = require("http");
 const { Server } = require("socket.io");
-
+const fs = require("fs");
 const path = require("path");
 
 // データベースディレクトリを確認して作成
@@ -159,8 +159,7 @@ function resetScores(roomName) {
     }
 }
 
-// クイズ終了時の処理
-const fs = require("fs"); // ファイル保存用モジュールを追加
+
 
 function saveResults(roomName) {
     if (!playerScores[roomName]) return;
