@@ -3,7 +3,7 @@ const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const http = require("http");
 const { Server } = require("socket.io");
-const fs = require("fs");
+
 const path = require("path");
 
 // データベースディレクトリを確認して作成
