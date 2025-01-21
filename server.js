@@ -3,6 +3,17 @@ const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const http = require("http");
 const { Server } = require("socket.io");
+const fs = require("fs");
+const path = require("path");
+
+// データベースディレクトリを確認して作成
+const dataDirectory = path.resolve(__dirname, "data");
+if (!fs.existsSync(dataDirectory)) {
+    fs.mkdirSync(dataDirectory, { recursive: true });
+    console.log(`データベース用のディレクトリを作成しました: ${dataDirectory}`);
+} else {
+    console.log(`データベース用のディレクトリが存在します: ${dataDirectory}`);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -584,6 +595,8 @@ app.get("/get-user-study-data/:username", (req, res) => {
     const userRecords = studyRecords[username] || [];
     res.json({ success: true, studyRecords: userRecords });
 });
+
+console.log(`セッションは以下のディレクトリに保存されます: ${dataDirectory}`);
 
 server.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
