@@ -135,3 +135,19 @@ table th {
         padding: 8px;
     }
 }
+/* ======== ホーム画面のボタンレイアウト ======== */
+.button-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3列のグリッド */
+    gap: 15px; /* ボタン間の余白 */
+    max-width: 500px; /* ボタンエリアの最大幅 */
+    margin: 20px auto; /* 中央配置 */
+    text-align: center;
+}
+
+.button-container button {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    border-radius: 8px;
+}
