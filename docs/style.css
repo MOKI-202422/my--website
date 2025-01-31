@@ -141,8 +141,8 @@ table th {
     display: grid;
     grid-template-columns: repeat(3, 1fr); /* 3列のグリッド */
     grid-template-rows: repeat(2, auto); /* 2行のグリッド */
-    gap: 30px; /* ボタン間の余白を広くする */
-    max-width: 600px; /* ボタンエリアの最大幅を広げる */
+    gap: 30px; /* 現在の 2倍に広げる (15px → 30px) */
+    max-width: 600px; /* ボタンエリアの最大幅 */
     
     /* 画面中央に配置 */
     position: absolute;
@@ -153,8 +153,8 @@ table th {
 
 .button-container button {
     width: 100%;
-    padding: 18px; /* ボタン自体のサイズを少し大きく */
-    font-size: 18px; /* 文字サイズを調整 */
-    border-radius: 10px;
+    padding: 15px; /* ボタン自体のサイズはそのまま */
+    font-size: 16px;
+    border-radius: 8px;
 }
 
