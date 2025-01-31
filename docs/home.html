@@ -9,14 +9,14 @@
 <body>
     <h1>ホーム画面</h1>
     <p id="welcomeMessage"></p>
-    <div class="button-container"></div>
+    <div class="button-container">
     <button id="startQuiz">クイズを開始</button>
     <button id="createQuestion">問題を作る</button>
     <button id="viewResults">成績表を見る</button>
     <button id="studyTime">勉強時間</button>
     <button id="viewFriends">フレンドリスト</button>
     <button id="viewBoard">掲示板</button>
-</div>
+    </div>
     <script>
         const username = localStorage.getItem("username");
         if (!username) {
